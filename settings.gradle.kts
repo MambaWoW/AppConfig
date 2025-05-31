@@ -33,3 +33,7 @@ plugins {
 }
 
 include(":composeApp")
+include(":appconfig-annotation")
+include(":appconfig-processor")
+include(":appconfig-lib")
+include(":appconfig-panel")
