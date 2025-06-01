@@ -22,6 +22,8 @@ import io.github.mambawow.appconfig.OptionConfigItem
 import io.github.mambawow.appconfig.panel.navigation.ConfigPanel
 import io.github.mambawow.appconfig.panel.navigation.ConfigInput
 import io.github.mambawow.appconfig.panel.navigation.ConfigOption
+import io.github.mambawow.appconfig.panel.navigation.toOrdinal
+import io.github.mambawow.appconfig.panel.navigation.toDataType
 import io.github.mambawow.appconfig.panel.ui.screen.ConfigInputPage
 import io.github.mambawow.appconfig.panel.ui.screen.ConfigOptionPage
 import io.github.mambawow.appconfig.panel.ui.screen.ConfigPanelScreen
@@ -79,13 +81,13 @@ fun ConfigPanelWithNavigation(
     // iOS-style animation durations and specs
     val animationDuration = 350
     val slideDistance = 1000
-    
+
     // Create reusable animations
     val defaultAnimations = createNavigationAnimations({ slideDistance }, animationDuration)
     val pageAnimations = createNavigationAnimations({ it }, animationDuration)
 
     CompositionLocalProvider(LocalThemeType provides theme) {
-        MaterialTheme (
+        MaterialTheme(
             colorScheme = colorScheme(theme)
         ) {
             NavHost(
@@ -107,7 +109,7 @@ fun ConfigPanelWithNavigation(
                                     title = title,
                                     currentValue = currentValue,
                                     isNumeric = isNumeric,
-                                    dataType = dataType,
+                                    dataTypeOrdinal = dataType.toOrdinal(),
                                     key = key
                                 )
                             ) {
@@ -121,7 +123,7 @@ fun ConfigPanelWithNavigation(
                                     currentOptionId = currentOptionId,
                                     key = key
                                 )
-                            ){
+                            ) {
                                 restoreState = true
                             }
                         }
@@ -136,15 +138,17 @@ fun ConfigPanelWithNavigation(
                     popExitTransition = { pageAnimations.popExitTransition }
                 ) { backStackEntry ->
                     val configInput = backStackEntry.toRoute<ConfigInput>()
-
                     ConfigInputPage(
                         title = configInput.title,
                         initialValue = configInput.currentValue,
                         isNumeric = configInput.isNumeric,
-                        dataType = configInput.dataType,
+                        dataType = configInput.dataTypeOrdinal.toDataType(),
                         onConfirm = { newValue ->
                             // Convert string input to proper type based on dataType
-                            val convertedValue = convertStringToType(newValue, configInput.dataType)
+                            val convertedValue = convertStringToType(
+                                newValue,
+                                configInput.dataTypeOrdinal.toDataType()
+                            )
                             viewModel.updateConfigValue(configInput.key, convertedValue)
                         },
                         onNavigateBack = {

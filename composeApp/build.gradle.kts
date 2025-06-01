@@ -15,6 +15,10 @@ plugins {
     alias(libs.plugins.kspPlugin)
 }
 
+ksp {
+    arg("isMultiplatform", "1")
+}
+
 kotlin {
     applyDefaultHierarchyTemplate()
 
@@ -37,8 +41,6 @@ kotlin {
     }
     
     sourceSets {
-
-
         androidMain.dependencies {
             implementation(compose.preview)
             implementation(libs.androidx.activity.compose)
@@ -65,13 +67,24 @@ kotlin {
 }
 dependencies {
     add("kspCommonMainMetadata", project(":appconfig-processor"))
+    add("kspAndroid", project(":appconfig-processor"))
+    add("kspIosX64", project(":appconfig-processor"))
+    add("kspIosArm64", project(":appconfig-processor"))
+    add("kspIosSimulatorArm64", project(":appconfig-processor"))
 }
 
-tasks.withType<KotlinCompile>().configureEach {
+tasks.named { name -> name.startsWith("ksp") }.configureEach {
     if (name != "kspCommonMainKotlinMetadata") {
         dependsOn("kspCommonMainKotlinMetadata")
     }
 }
+
+
+/*tasks.withType<KotlinCompile>().configureEach {
+    if (name != "kspCommonMainKotlinMetadata") {
+        dependsOn("kspCommonMainKotlinMetadata")
+    }
+}*/
 
 android {
     namespace = "io.github.mambawow.appconfig"

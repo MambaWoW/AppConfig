@@ -32,37 +32,85 @@ class ExtensionGenerator {
     
     /**
      * 生成getAllConfigItems扩展方法
+     *  isSingleTarget = true fun getAllConfigItems(): List<ConfigItemDiscriptor>{}
+     *  else
+     *
+     * 1. singletarget, 比如Android，不需要区分commonMain 和 其他target。
      */
-    fun generateGetAllConfigItemsMethod(allConfigClasses: List<Pair<String, String>>): FunSpec {
-        val getAllConfigItemsSpec = FunSpec.builder("getAllConfigItems")
-            .receiver(appConfigClass)
-            .returns(
-                List::class.asClassName().parameterizedBy(
-                    configItemDescriptorClass.parameterizedBy(STAR)
+    fun generateGetAllConfigItemsMethod(
+        allConfigClasses: List<Pair<String, String>>,
+        isCommonMain: Boolean,
+        isMultiplatform: Boolean
+    ): FunSpec {
+        if (isCommonMain) {
+            val getAllConfigItemsSpec = FunSpec.builder("getAllConfigItems")
+                .receiver(appConfigClass)
+                .returns(
+                    List::class.asClassName().parameterizedBy(
+                        configItemDescriptorClass.parameterizedBy(STAR)
+                    )
+                ).addModifiers(KModifier.EXPECT)
+
+            /*if (allConfigClasses.isEmpty()) {
+                getAllConfigItemsSpec.addStatement("return emptyList()")
+            } else {
+                getAllConfigItemsSpec.addStatement(
+                    "return %L",
+                    allConfigClasses.map { (groupName, _) ->
+                        "${groupName.lowercase()}.getConfigItems()"
+                    }.joinToString(" + ")
                 )
-            )
-        
-        if (allConfigClasses.isEmpty()) {
-            getAllConfigItemsSpec.addStatement("return emptyList()")
+            }*/
+            return getAllConfigItemsSpec.build()
         } else {
-            getAllConfigItemsSpec.addStatement(
-                "return %L",
-                allConfigClasses.map { (groupName, _) -> 
-                    "${groupName.lowercase()}.getConfigItems()" 
-                }.joinToString(" + ")
-            )
+            val getAllConfigItemsSpec = FunSpec.builder("getAllConfigItems")
+                .receiver(appConfigClass)
+                .returns(
+                    List::class.asClassName().parameterizedBy(
+                        configItemDescriptorClass.parameterizedBy(STAR)
+                    )
+                )
+
+            if (isMultiplatform) {
+                getAllConfigItemsSpec.addModifiers(KModifier.ACTUAL)
+            }
+            if (allConfigClasses.isEmpty()) {
+                getAllConfigItemsSpec.addStatement("return emptyList()")
+            } else {
+                getAllConfigItemsSpec.addStatement(
+                    "return %L",
+                    allConfigClasses.map { (groupName, _) ->
+                        "${groupName.lowercase()}.getConfigItems()"
+                    }.joinToString(" + ")
+                )
+            }
+            return getAllConfigItemsSpec.build()
         }
-        
-        return getAllConfigItemsSpec.build()
     }
     
     /**
      * 生成updateAllFromRemote扩展方法
      */
-    fun generateUpdateAllFromRemoteMethod(allConfigClasses: List<Pair<String, String>>): FunSpec {
+    fun generateUpdateAllFromRemoteMethod(
+        allConfigClasses: List<Pair<String, String>>,
+        isCommonMain: Boolean,
+        isMultiplatform: Boolean
+    ): FunSpec {
+        if (isCommonMain) {
+            val updateAllFromRemoteSpec = FunSpec.builder("updateAllFromRemote")
+                .receiver(appConfigClass)
+                .addModifiers(KModifier.EXPECT, KModifier.SUSPEND)
+                .addParameter(
+                    "globalConfigData",
+                    Map::class.asClassName().parameterizedBy(
+                        String::class.asClassName(),
+                        Map::class.asClassName().parameterizedBy(String::class.asClassName(), ANY)
+                    )
+                )
+            return updateAllFromRemoteSpec.build()
+        }
         val updateAllFromRemoteSpec = FunSpec.builder("updateAllFromRemote")
             .receiver(appConfigClass)
-            .addModifiers(KModifier.SUSPEND)
             .addParameter(
                 "globalConfigData",
                 Map::class.asClassName().parameterizedBy(
@@ -70,6 +118,12 @@ class ExtensionGenerator {
                     Map::class.asClassName().parameterizedBy(String::class.asClassName(), ANY)
                 )
             )
+
+        if (!isMultiplatform) {
+            updateAllFromRemoteSpec.addModifiers(KModifier.SUSPEND)
+        } else {
+            updateAllFromRemoteSpec.addModifiers(KModifier.ACTUAL, KModifier.SUSPEND)
+        }
         
         if (allConfigClasses.isEmpty()) {
             updateAllFromRemoteSpec.addComment("No config groups to update")
@@ -94,11 +148,26 @@ class ExtensionGenerator {
     /**
      * 生成resetAllToDefaults扩展方法
      */
-    fun generateResetAllToDefaultsMethod(allConfigClasses: List<Pair<String, String>>): FunSpec {
+    fun generateResetAllToDefaultsMethod(
+        allConfigClasses: List<Pair<String, String>>,
+        isCommonMain: Boolean,
+        isMultiplatform: Boolean
+    ): FunSpec {
+        if (isCommonMain) {
+            val resetAllToDefaultsSpec = FunSpec.builder("resetAllToDefaults")
+                .receiver(appConfigClass)
+                .addModifiers(KModifier.EXPECT, KModifier.SUSPEND)
+            return resetAllToDefaultsSpec.build()
+        }
         val resetAllToDefaultsSpec = FunSpec.builder("resetAllToDefaults")
             .receiver(appConfigClass)
-            .addModifiers(KModifier.SUSPEND)
-        
+
+        if (!isMultiplatform) {
+            resetAllToDefaultsSpec.addModifiers(KModifier.SUSPEND)
+        } else {
+            resetAllToDefaultsSpec.addModifiers(KModifier.ACTUAL, KModifier.SUSPEND)
+        }
+
         if (allConfigClasses.isNotEmpty()) {
             allConfigClasses.forEach { (groupName, _) ->
                 resetAllToDefaultsSpec.addStatement("%L.resetToDefaults()", groupName.lowercase())

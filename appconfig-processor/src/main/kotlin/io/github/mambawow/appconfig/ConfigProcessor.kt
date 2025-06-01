@@ -1,5 +1,6 @@
 package io.github.mambawow.appconfig
 
+import com.google.devtools.ksp.KspExperimental
 import com.google.devtools.ksp.processing.CodeGenerator
 import com.google.devtools.ksp.processing.Dependencies
 import com.google.devtools.ksp.processing.KSPLogger
@@ -21,13 +22,8 @@ class ConfigProcessor(
 ) : SymbolProcessor {
 
     private var processed = false
-    
-    // 从options中读取配置参数
-    private val debugMode = options["appconfig.debug"]?.toBoolean() ?: false
-    private val generateExtensions = options["appconfig.generateExtensions"]?.toBoolean() ?: true
-    private val customPackageName = options["appconfig.packageName"] ?: GENERATED_PACKAGE_NAME
-    private val validatePanelTypes = options["appconfig.validatePanelTypes"]?.toBoolean() ?: true
-    private val logLevel = options["appconfig.logLevel"] ?: "INFO"
+
+    private val isMultiplatform = options["isMultiplatform"]?.toInt() == 1
     
     // 使用工厂创建组件
     private val components = ProcessorFactory.createAllComponents(logger)
@@ -35,7 +31,7 @@ class ConfigProcessor(
     // 配置常量
     companion object {
         const val GENERATED_PACKAGE_NAME = "io.github.mambawow.appconfig"
-        const val GENERATED_CLASS_NAME = "AppConfigExtensions"
+        const val GENERATED_CLASS_NAME = "AppConfigExt"
 
         val PropertyAnnotationQualifiedNames = listOf(
             IntProperty::class.qualifiedName,
@@ -50,7 +46,9 @@ class ConfigProcessor(
 
     override fun process(resolver: Resolver): List<KSAnnotated> {
         if (processed) return emptyList()
-        
+
+        logger.warn("isMultiplatform: $isMultiplatform")
+
         try {
             val configClasses = getValidConfigClasses(resolver)
             if (configClasses.isEmpty()) {
@@ -67,7 +65,7 @@ class ConfigProcessor(
             }
             
             validateUniqueGroupNamesAndKeys(configDataList)
-            generateCode(configDataList)
+            generateCode(configDataList, resolver)
             
         } catch (e: Exception) {
             logger.error("Error during processing: ${e.message}\n${e.stackTraceToString()}")
@@ -145,16 +143,50 @@ class ConfigProcessor(
             }
         }
     }
-    
+
+    private val commonMainModuleName = "commonMain"
+
+    @OptIn(KspExperimental::class)
+    private fun Resolver.isCommonMain(): Boolean {
+        return moduleName().contains(commonMainModuleName)
+    }
+
+    @OptIn(KspExperimental::class)
+    private fun Resolver.moduleName(): String {
+        return try {
+            getModuleName().getShortName()
+        } catch (e: Throwable) {
+            ""
+        }
+    }
+
     /**
      * 生成代码
      */
-    private fun generateCode(configDataList: List<ConfigData>) {
+    @OptIn(KspExperimental::class)
+    private fun generateCode(configDataList: List<ConfigData>, resolver: Resolver) {
         val fileSpecBuilder = createFileSpecBuilder()
         val allConfigClasses = configDataList.map { it.groupName to it.name }
-        
+
+        val moduleName = resolver.moduleName()
+
+        val isCommonMain = resolver.isCommonMain()
         // 生成配置实现类
         configDataList.forEach { configData ->
+            logger.warn("classes: $moduleName >>> ${configData.name} + ${configData.ksFile.filePath}")
+
+            if (isMultiplatform) {
+                if (isCommonMain) {
+                    if (!configData.ksFile.filePath.contains(commonMainModuleName)) {
+                        return@forEach
+                    }
+                } else {
+                    if (configData.ksFile.filePath.contains(commonMainModuleName)) {
+                        return@forEach
+                    }
+                }
+            }
+
             val configImpl = components.configImplGenerator.generateConfigImpl(configData)
             fileSpecBuilder.addType(configImpl)
             
@@ -164,12 +196,12 @@ class ConfigProcessor(
         }
         
         // 生成全局扩展方法
-        fileSpecBuilder.addFunction(components.extensionGenerator.generateGetAllConfigItemsMethod(allConfigClasses))
-        fileSpecBuilder.addFunction(components.extensionGenerator.generateUpdateAllFromRemoteMethod(allConfigClasses))
-        fileSpecBuilder.addFunction(components.extensionGenerator.generateResetAllToDefaultsMethod(allConfigClasses))
+        fileSpecBuilder.addFunction(components.extensionGenerator.generateGetAllConfigItemsMethod(allConfigClasses, isCommonMain, isMultiplatform))
+        fileSpecBuilder.addFunction(components.extensionGenerator.generateUpdateAllFromRemoteMethod(allConfigClasses, isCommonMain, isMultiplatform))
+        fileSpecBuilder.addFunction(components.extensionGenerator.generateResetAllToDefaultsMethod(allConfigClasses, isCommonMain, isMultiplatform))
         
         // 写入文件
-        writeGeneratedFile(fileSpecBuilder.build(), configDataList)
+        writeGeneratedFile(fileSpecBuilder.build(), configDataList, moduleName)
     }
     
     /**
@@ -219,12 +251,12 @@ class ConfigProcessor(
     /**
      * 写入生成的文件
      */
-    private fun writeGeneratedFile(fileSpec: FileSpec, configDataList: List<ConfigData>) {
+    private fun writeGeneratedFile(fileSpec: FileSpec, configDataList: List<ConfigData>, moduleName: String) {
         try {
             val fileStream = codeGenerator.createNewFile(
                 Dependencies.ALL_FILES,
                 GENERATED_PACKAGE_NAME,
-                GENERATED_CLASS_NAME
+                GENERATED_CLASS_NAME + moduleName
             )
             
             OutputStreamWriter(fileStream, Charsets.UTF_8).use { writer ->
