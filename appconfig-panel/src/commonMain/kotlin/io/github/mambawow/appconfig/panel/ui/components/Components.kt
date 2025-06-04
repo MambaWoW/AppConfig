@@ -33,37 +33,22 @@ import io.github.mambawow.appconfig.panel.ui.theme.LocalThemeType
 import io.github.mambawow.appconfig.panel.ui.theme.ThemeType
 
 /**
- * Common UI components for the configuration panel
- * 
- * This file contains reusable UI components that adapt their appearance
- * based on the current platform theme (Material vs Cupertino).
- * 
- * Components include:
- * - ActionButton: Primary action buttons with platform-specific styling
- * - NavigationButton: Back navigation with adaptive layout
- * - Dividers: Visual separators for content organization
- * 
- * @author Frank Shao
- * @created 2025/01/29
- */
-
-/**
  * Platform-adaptive action button component
- * 
+ *
  * This button automatically adapts its appearance and interaction behavior
  * based on the current theme:
- * 
+ *
  * Material Design:
  * - Uses TextButton with Material ripple effects
  * - Standard Material button typography and spacing
  * - Material interaction states and animations
- * 
+ *
  * Cupertino (iOS):
  * - Custom implementation with iOS-style interactions
  * - Opacity-based press feedback (iOS standard)
  * - System blue color for action text
  * - No background or border (iOS button pattern)
- * 
+ *
  * @param actionText The text to display on the button
  * @param onClick Callback function when the button is pressed
  */
@@ -82,12 +67,12 @@ fun ActionButton(
                 )
             }
         }
-        
+
         ThemeType.Cupertino -> {
             // iOS-style implementation with custom press feedback
             val interactionSource = remember { MutableInteractionSource() }
             val isPressed by interactionSource.collectIsPressedAsState()
-            
+
             Row(
                 modifier = Modifier
                     .graphicsLayer {
@@ -105,7 +90,7 @@ fun ActionButton(
                 Text(
                     text = actionText,
                     style = AppTextStyles.BodyNormal.copy(
-                        fontSize = 16.sp, 
+                        fontSize = 16.sp,
                         color = SystemBlue
                     )
                 )
@@ -116,21 +101,21 @@ fun ActionButton(
 
 /**
  * Platform-adaptive navigation button component
- * 
+ *
  * This component provides back navigation functionality with
  * platform-specific visual design and interaction patterns:
- * 
+ *
  * Material Design:
  * - IconButton with back arrow icon
  * - Material ripple interaction feedback
  * - Standard Material icon sizing and spacing
- * 
+ *
  * Cupertino (iOS):
  * - Custom layout with chevron and "Back" text
  * - iOS-style opacity feedback on press
  * - System blue color scheme
  * - Text + icon combination (iOS navigation pattern)
- * 
+ *
  * @param onClick Callback function when the navigation button is pressed
  */
 @Composable
@@ -150,12 +135,12 @@ fun NavigationButton(
                 )
             }
         }
-        
+
         ThemeType.Cupertino -> {
             // iOS-style implementation with text + icon
             val interactionSource = remember { MutableInteractionSource() }
             val isPressed by interactionSource.collectIsPressedAsState()
-            
+
             Row(
                 modifier = Modifier
                     .graphicsLayer {
@@ -181,7 +166,7 @@ fun NavigationButton(
                 Text(
                     text = "Back",
                     style = AppTextStyles.BodyNormal.copy(
-                        fontSize = 17.sp, 
+                        fontSize = 17.sp,
                         color = SystemBlue
                     )
                 )
@@ -192,10 +177,10 @@ fun NavigationButton(
 
 /**
  * Horizontal divider component for content separation
- * 
+ *
  * Creates a thin horizontal line used to visually separate
  * content sections, list items, or groups of related elements.
- * 
+ *
  * @param modifier Modifier for customizing the divider's layout
  * @param color Color of the divider line (defaults to theme divider color)
  */
@@ -214,10 +199,10 @@ fun HorizontalDivider(
 
 /**
  * Vertical divider component for content separation
- * 
+ *
  * Creates a thin vertical line used to visually separate
  * content sections in horizontal layouts or side-by-side elements.
- * 
+ *
  * @param modifier Modifier for customizing the divider's layout
  * @param color Color of the divider line (defaults to theme divider color)
  */

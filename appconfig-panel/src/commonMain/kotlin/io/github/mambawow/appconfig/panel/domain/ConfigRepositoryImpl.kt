@@ -9,17 +9,6 @@ import kotlinx.coroutines.flow.MutableStateFlow
 
 /**
  * Default implementation of ConfigRepository
- * 
- * This repository manages configuration items and provides reactive updates
- * through Flow-based state management. It handles both standard configuration
- * items (with primitive data types) and option-based configuration items.
- * 
- * Features:
- * - Type-safe configuration updates with validation
- * - Reactive configuration value observation
- * - Efficient single-value updates to minimize UI recomposition
- * - Comprehensive error handling with detailed error messages
- * 
  * @param configItems The list of configuration items to manage
  */
 class ConfigRepositoryImpl(
@@ -37,20 +26,9 @@ class ConfigRepositoryImpl(
 
     /**
      * Get all managed configuration items
-     * 
-     * @return Immutable list of configuration item descriptors
      */
     override fun getConfigItems(): List<ConfigItemDescriptor<*>> = configItems
 
-    /**
-     * Observe all configuration values reactively
-     * 
-     * This method returns a Flow that emits the complete configuration map
-     * whenever any configuration value changes. UI components can collect
-     * from this Flow to receive updates automatically.
-     * 
-     * @return Flow of configuration key-value pairs
-     */
     override fun observeAllConfigValues(): Flow<Map<String, Any?>> {
         return _configValues
     }
@@ -89,12 +67,6 @@ class ConfigRepositoryImpl(
         }
     }
 
-    /**
-     * Reset all configurations to their default values
-     * 
-     * This method resets every configuration item to its default value
-     * and refreshes the entire configuration state.
-     */
     override suspend fun resetAllConfigs() {
         try {
             configItems.forEach { item ->
@@ -109,28 +81,12 @@ class ConfigRepositoryImpl(
         }
     }
 
-    /**
-     * Update a single configuration value in the state map
-     * 
-     * This method performs an optimized update by only changing the specific
-     * key-value pair rather than recreating the entire map.
-     * 
-     * @param key The configuration key to update
-     * @param newValue The new value for the key
-     */
     private fun updateSingleConfigValue(key: String, newValue: Any?) {
         val currentValues = _configValues.value.toMutableMap()
         currentValues[key] = newValue
         _configValues.value = currentValues
     }
 
-    /**
-     * Refresh all configuration values from their current state
-     * 
-     * This method rebuilds the entire configuration map by querying
-     * each configuration item for its current value. Used during
-     * initialization and after bulk operations.
-     */
     private fun refreshAllValues() {
         val values = configItems.associate { item ->
             item.key to item.getCurrentValue()
@@ -202,30 +158,11 @@ class ConfigRepositoryImpl(
         }
     }
 
-    /**
-     * Type-safe update for standard configuration items
-     * 
-     * This method performs the actual update operation with proper type casting.
-     * The @Suppress annotation is necessary due to Kotlin's type system limitations
-     * with generic wildcards.
-     * 
-     * @param item The configuration item to update
-     * @param value The new value (type already validated)
-     */
     @Suppress("UNCHECKED_CAST")
     private fun <T> updateTypedStandardConfigItem(item: StandardConfigItem<*>, value: T) {
         (item as StandardConfigItem<T>).updateValue(value)
     }
 
-    /**
-     * Update an option-based configuration item
-     * 
-     * This method handles updates for configuration items that have a predefined
-     * set of options. The value must be one of the valid options for the item.
-     * 
-     * @param item The option configuration item to update
-     * @param value The new option value
-     */
     private fun updateOptionConfigItem(item: OptionConfigItem<*>, value: Any) {
         try {
             updateTypedOptionConfigItem(item, value)
@@ -234,15 +171,6 @@ class ConfigRepositoryImpl(
         }
     }
 
-    /**
-     * Type-safe update for option configuration items
-     * 
-     * Similar to the standard config item update, this method performs
-     * the actual update with proper type casting.
-     * 
-     * @param item The option configuration item to update
-     * @param value The new option value
-     */
     @Suppress("UNCHECKED_CAST")
     private fun updateTypedOptionConfigItem(item: OptionConfigItem<*>, value: Any) {
         (item as OptionConfigItem<Any>).updateValue(value)

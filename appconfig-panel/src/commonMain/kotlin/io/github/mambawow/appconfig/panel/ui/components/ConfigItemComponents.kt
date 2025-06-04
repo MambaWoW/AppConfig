@@ -1,6 +1,5 @@
 package io.github.mambawow.appconfig.panel.ui.components
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
@@ -8,45 +7,31 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextField
-import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import io.github.mambawow.appconfig.panel.ui.theme.ThemeType
-import io.github.mambawow.appconfig.panel.ui.theme.LocalThemeType
-import io.github.mambawow.appconfig.panel.ui.theme.AppTextStyles
-import io.github.mambawow.appconfig.panel.ui.theme.AppColors
 import io.github.mambawow.appconfig.panel.ui.icons.AppIcons
-import io.github.mambawow.appconfig.panel.ui.icons.AppIcons.ChevronBackward
 import io.github.mambawow.appconfig.panel.ui.theme.AppColors.SystemBlue
 import io.github.mambawow.appconfig.panel.ui.theme.AppColors.SystemGray
 import io.github.mambawow.appconfig.panel.ui.theme.AppColors.SystemGreen
+import io.github.mambawow.appconfig.panel.ui.theme.AppTextStyles
+import io.github.mambawow.appconfig.panel.ui.theme.LocalThemeType
+import io.github.mambawow.appconfig.panel.ui.theme.ThemeType
 
 /**
  * Common header component for configuration items
@@ -95,7 +80,7 @@ fun ConfigSwitchItem(
         Box(modifier = Modifier.weight(1f)) {
             ConfigItemHeader(title, description)
         }
-        
+
         Box(modifier = Modifier.width(60.dp).height(20.dp)) {
             val theme = LocalThemeType.current
             when (theme) {
@@ -114,6 +99,7 @@ fun ConfigSwitchItem(
                         )
                     )
                 }
+
                 ThemeType.Cupertino -> {
                     Switch(
                         modifier = Modifier.scale(0.7f),
@@ -158,9 +144,9 @@ fun ConfigInputItem(
         verticalAlignment = Alignment.CenterVertically
     ) {
         ConfigItemHeader(title, description)
-        
+
         Spacer(modifier = Modifier.width(12.dp))
-        
+
         Text(
             modifier = Modifier.weight(1f).padding(end = 6.dp),
             textAlign = androidx.compose.ui.text.style.TextAlign.End,
@@ -201,9 +187,9 @@ fun ConfigOptionItem(
         verticalAlignment = Alignment.CenterVertically
     ) {
         ConfigItemHeader(title, description)
-        
+
         Spacer(modifier = Modifier.width(12.dp))
-        
+
         Text(
             modifier = Modifier.weight(1f).padding(end = 6.dp),
             textAlign = androidx.compose.ui.text.style.TextAlign.End,

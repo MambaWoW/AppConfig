@@ -16,17 +16,11 @@ import io.github.mambawow.appconfig.panel.ui.theme.ThemeType
 
 /**
  * Adaptive scaffold component that provides platform-specific layouts
- * 
+ *
  * This scaffold automatically adapts its appearance based on the current theme type:
  * - Material Design: Uses standard TopAppBar with left-aligned title
  * - Cupertino (iOS): Uses CenterAlignedTopAppBar with centered title
- * 
- * Features:
- * - Platform-adaptive navigation patterns
- * - Consistent spacing and layout structure
- * - Flexible action button configuration
- * - Responsive design for different screen sizes
- * 
+ *
  * @param title The title to display in the app bar
  * @param onNavigationClick Callback for navigation button press (e.g., back button)
  * @param onActionClick Callback for primary action button press (e.g., reset button)
@@ -72,20 +66,20 @@ fun AppScaffold(
 
 /**
  * Platform-adaptive top app bar component
- * 
+ *
  * This component automatically switches between Material and Cupertino designs
  * based on the current theme context. The visual differences include:
- * 
+ *
  * Material Design:
  * - Left-aligned title
  * - Standard Material elevation and styling
  * - Material iconography and interactions
- * 
+ *
  * Cupertino (iOS):
  * - Center-aligned title
  * - iOS-style navigation patterns
  * - System colors and typography
- * 
+ *
  * @param title Composable content for the app bar title
  * @param navigationIcon Composable content for the navigation button (typically back button)
  * @param actions Composable content for action buttons in the app bar
@@ -98,7 +92,7 @@ fun AdaptiveTopBar(
     actions: @Composable RowScope.() -> Unit = {}
 ) {
     val theme = LocalThemeType.current
-    
+
     when (theme) {
         ThemeType.Material -> {
             TopAppBar(
@@ -107,6 +101,7 @@ fun AdaptiveTopBar(
                 actions = actions
             )
         }
+
         ThemeType.Cupertino -> {
             CenterAlignedTopAppBar(
                 title = title,

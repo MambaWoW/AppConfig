@@ -12,7 +12,7 @@ import androidx.compose.ui.Modifier
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
-import io.github.mambawow.appconfig.panel.ConfigPanelWithNavigation
+import io.github.mambawow.appconfig.panel.ConfigPanel
 import org.jetbrains.compose.ui.tooling.preview.Preview
 
 @Composable
@@ -34,7 +34,7 @@ fun App() {
                 }
             }
             composable("test") {
-                ConfigPanelWithNavigation(
+                ConfigPanel(
                     configItems = AppConfig.getAllConfigItems()
                 )
             }
