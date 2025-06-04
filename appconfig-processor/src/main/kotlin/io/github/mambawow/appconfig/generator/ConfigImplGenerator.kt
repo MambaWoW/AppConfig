@@ -6,8 +6,24 @@ import io.github.mambawow.appconfig.DataType
 import io.github.mambawow.appconfig.model.*
 
 /**
- * 配置实现类生成器
- * 负责生成ConfigImpl类
+ * Generator for configuration implementation classes.
+ * 
+ * This generator creates concrete implementation classes for configuration interfaces
+ * annotated with @Config. The generated classes include:
+ * 
+ * - Property implementations with custom getters and setters
+ * - Integration with ConfigStore for persistent storage
+ * - Default value management and update methods
+ * - Configuration item descriptors for UI generation
+ * - Bulk update and reset functionality
+ * 
+ * For option properties, the generator implements a dual-storage approach:
+ * - Internal storage uses integer option IDs for efficiency
+ * - Public interface uses strongly-typed sealed class instances
+ * - Automatic conversion between IDs and type instances
+ * 
+ * Generated implementation classes are thread-safe and handle all type
+ * conversions, validation, and storage operations transparently.
  */
 class ConfigImplGenerator {
     
@@ -15,47 +31,50 @@ class ConfigImplGenerator {
     private val appConfigClass = ClassName("io.github.mambawow.appconfig", "AppConfig")
     
     /**
-     * 生成配置实现类
+     * Generates a complete implementation class for a configuration interface.
+     *
+     * @param configData Complete configuration metadata
+     * @return TypeSpec for the implementation class
      */
     fun generateConfigImpl(configData: ConfigData): TypeSpec {
-        val implBuilder = TypeSpec.classBuilder(configData.implName)
+        val implementationBuilder = TypeSpec.classBuilder(configData.implName)
             .addModifiers(KModifier.PUBLIC)
-            .addSuperinterface(ClassName(configData.packageName, configData.name)) // 实现接口
+            .addSuperinterface(ClassName(configData.packageName, configData.name))
         
-        // 添加store属性
-        implBuilder.addProperty(
+        // Add ConfigStore property for persistent storage
+        implementationBuilder.addProperty(
             PropertySpec.builder("store", configStoreClass)
                 .addModifiers(KModifier.PRIVATE)
                 .initializer("AppConfig.createConfigStore(%S)", configData.groupName)
                 .build()
         )
         
-        // 为每个属性生成 var 属性（带 getter 和 setter）
+        // Generate property implementations
         configData.properties.forEach { property ->
-            // 生成默认值属性
-            implBuilder.addProperty(generateDefaultValueProperty(property))
-            // 生成更新默认值方法
-            implBuilder.addFunction(generateUpdateDefaultValueMethod(property))
-            // 生成主属性
-            implBuilder.addProperty(generatePropertyOverride(property))
+            implementationBuilder.addProperty(generateDefaultValueProperty(property))
+            implementationBuilder.addFunction(generateDefaultValueUpdateMethod(property))
+            implementationBuilder.addProperty(generatePropertyImplementation(property))
         }
         
-        // 生成辅助方法
-        implBuilder.addFunction(generateGetConfigItemsMethod(configData))
-        implBuilder.addFunction(generateUpdateFromMapMethod(configData))
-        implBuilder.addFunction(generateResetToDefaultsMethod(configData))
+        // Generate utility methods
+        implementationBuilder.addFunction(generateConfigItemsMethod(configData))
+        implementationBuilder.addFunction(generateBulkUpdateMethod(configData))
+        implementationBuilder.addFunction(generateResetMethod(configData))
         
-        return implBuilder.build()
+        return implementationBuilder.build()
     }
     
     /**
-     * 生成默认值属性
+     * Generates a default value storage property for a configuration property.
+     *
+     * @param property Property metadata
+     * @return PropertySpec for the default value property
      */
     private fun generateDefaultValueProperty(property: PropertyData): PropertySpec {
         val defaultValuePropertyName = "${property.name}Default"
-        val defaultValueExpr = when (property.dataType) {
+        val defaultValueExpression = when (property.dataType) {
             DataType.OPTION -> {
-                // 对于 Option 类型，存储默认选项的 ID
+                // Store default option ID as integer for efficiency
                 val defaultOptionId = property.defaultValue as Int
                 CodeBlock.of("%L", defaultOptionId)
             }
@@ -63,31 +82,33 @@ class ConfigImplGenerator {
         }
         
         val propertyType = when (property.dataType) {
-            DataType.OPTION -> INT // Option 类型的默认值存储为 Int
+            DataType.OPTION -> INT // Option defaults stored as Int
             else -> property.typeName
         }
         
         return PropertySpec.builder(defaultValuePropertyName, propertyType)
             .addModifiers(KModifier.PRIVATE)
             .mutable(true)
-            .initializer(defaultValueExpr)
+            .initializer(defaultValueExpression)
             .build()
     }
     
     /**
-     * 生成更新默认值方法
+     * Generates a method to update the default value of a property at runtime.
+     * @param property Property metadata
+     * @return FunSpec for the default value update method
      */
-    private fun generateUpdateDefaultValueMethod(property: PropertyData): FunSpec {
+    private fun generateDefaultValueUpdateMethod(property: PropertyData): FunSpec {
         val defaultValuePropertyName = "${property.name}Default"
         val updateMethodName = "update${property.name.replaceFirstChar { it.titlecase() }}Default"
         
-        val funSpec = FunSpec.builder(updateMethodName)
+        val functionBuilder = FunSpec.builder(updateMethodName)
             .addModifiers(KModifier.PUBLIC)
             .addParameter("default", property.typeName)
         
         when (property.dataType) {
             DataType.OPTION -> {
-                // 对于 Option 类型，将枚举值转换为对应的 ID 并存储
+                // Convert sealed class instance to option ID for storage
                 val mappingCode = CodeBlock.builder()
                     .add("$defaultValuePropertyName = when (default) {\n")
                     .indent()
@@ -101,23 +122,35 @@ class ConfigImplGenerator {
                     .add("}")
                     .build()
                 
-                funSpec.addCode(mappingCode)
+                functionBuilder.addCode(mappingCode)
             }
             else -> {
-                funSpec.addStatement("$defaultValuePropertyName = default")
+                functionBuilder.addStatement("$defaultValuePropertyName = default")
             }
         }
         
-        return funSpec.build()
+        return functionBuilder.build()
     }
     
     /**
-     * 生成属性重写（var 属性，带 getter 和 setter）
+     * Generates the main property implementation with custom getter and setter.
+     * 
+     * For option properties:
+     * - Getter reads integer ID from storage and converts to sealed class instance
+     * - Setter converts sealed class instance to integer ID for storage
+     * - Includes fallback handling for unknown IDs
+     * 
+     * For primitive properties:
+     * - Getter reads value directly from storage with default fallback
+     * - Setter writes value directly to storage
+     * 
+     * @param property Property metadata
+     * @return PropertySpec for the property implementation
      */
-    private fun generatePropertyOverride(property: PropertyData): PropertySpec {
+    private fun generatePropertyImplementation(property: PropertyData): PropertySpec {
         val propertyBuilder = PropertySpec.builder(property.name, property.typeName)
             .addModifiers(KModifier.OVERRIDE)
-            .mutable(true) // var 属性
+            .mutable(true)
         
         val defaultValuePropertyName = "${property.name}Default"
         
@@ -125,7 +158,7 @@ class ConfigImplGenerator {
             DataType.OPTION -> {
                 val defaultOptionId = property.defaultValue as Int
                 
-                // Getter: 从 store 读取 Int，然后转换为对应的类型
+                // Getter: convert stored integer ID to sealed class instance
                 val getterCode = CodeBlock.builder()
                     .add("when (store.getInt(%S, %L)) {\n", property.key, defaultValuePropertyName)
                     .indent()
@@ -133,13 +166,13 @@ class ConfigImplGenerator {
                         property.optionItems.forEach { optionItem ->
                             add("%L -> %T\n", optionItem.optionId, optionItem.typeName)
                         }
-                        // 在 else 分支中，需要将存储的 ID 转换回对应的枚举值
+                        // Fallback chain for unknown IDs
                         add("else -> when ($defaultValuePropertyName) {\n")
                         indent()
                         property.optionItems.forEach { optionItem ->
                             add("%L -> %T\n", optionItem.optionId, optionItem.typeName)
                         }
-                        // 最终 fallback 到原始默认值
+                        // Final fallback to original default option
                         val originalDefaultOption = property.optionItems.find { it.isDefault }?.typeName
                         add("else -> %T\n", originalDefaultOption)
                         unindent()
@@ -156,7 +189,7 @@ class ConfigImplGenerator {
                         .build()
                 )
                 
-                // Setter: 将类型转换为 Int 然后存储
+                // Setter: convert sealed class instance to integer ID
                 val setterCode = CodeBlock.builder()
                     .add("val optionId = when (value) {\n")
                     .indent()
@@ -179,21 +212,19 @@ class ConfigImplGenerator {
                 )
             }
             else -> {
-                // 基础类型的处理
-                val storeSuffix = getStoreMethodSuffix(property.dataType)
+                // Primitive types: direct storage access
+                val storageMethodSuffix = getStorageMethodSuffix(property.dataType)
                 
-                // Getter: 使用默认值属性
                 propertyBuilder.getter(
                     FunSpec.getterBuilder()
-                        .addCode("return store.get%L(%S, %L)", storeSuffix, property.key, defaultValuePropertyName)
+                        .addCode("return store.get%L(%S, %L)", storageMethodSuffix, property.key, defaultValuePropertyName)
                         .build()
                 )
                 
-                // Setter: 直接写入 store
                 propertyBuilder.setter(
                     FunSpec.setterBuilder()
                         .addParameter("value", property.typeName)
-                        .addCode("store.put%L(%S, value)", storeSuffix, property.key)
+                        .addCode("store.put%L(%S, value)", storageMethodSuffix, property.key)
                         .build()
                 )
             }
@@ -203,12 +234,18 @@ class ConfigImplGenerator {
     }
     
     /**
-     * 生成getConfigItems方法
+     * Generates the getConfigItems method that provides metadata for all properties.
+     * 
+     * This method creates ConfigItemDescriptor instances for each property,
+     * which are used by configuration management UIs to display and edit values.
+     * 
+     * @param configData Complete configuration metadata
+     * @return FunSpec for the getConfigItems method
      */
-    private fun generateGetConfigItemsMethod(configData: ConfigData): FunSpec {
+    private fun generateConfigItemsMethod(configData: ConfigData): FunSpec {
         val configItemDescriptorClass = ClassName("io.github.mambawow.appconfig", "ConfigItemDescriptor")
         
-        val getConfigItemsSpec = FunSpec.builder("getConfigItems")
+        val methodBuilder = FunSpec.builder("getConfigItems")
             .returns(
                 List::class.asClassName().parameterizedBy(
                     configItemDescriptorClass.parameterizedBy(STAR)
@@ -218,7 +255,7 @@ class ConfigImplGenerator {
         val configItemsCode = CodeBlock.builder().add("return listOf(\n").indent()
 
         configData.properties.forEachIndexed { index, property ->
-            val configItemCode = generateConfigItemCode(property, configData.groupName)
+            val configItemCode = generateConfigItemDescriptor(property, configData.groupName)
             configItemsCode.add(configItemCode)
             if (index < configData.properties.size - 1) {
                 configItemsCode.add(",\n")
@@ -227,19 +264,23 @@ class ConfigImplGenerator {
             }
         }
         configItemsCode.unindent().add(")")
-        getConfigItemsSpec.addCode(configItemsCode.build())
+        methodBuilder.addCode(configItemsCode.build())
         
-        return getConfigItemsSpec.build()
+        return methodBuilder.build()
     }
     
     /**
-     * 生成ConfigItem代码
+     * Generates a ConfigItemDescriptor for a single property.
+     * @param property Property metadata
+     * @param groupName Configuration group name
+     * @return CodeBlock for the config item descriptor
      */
-    private fun generateConfigItemCode(property: PropertyData, groupName: String): CodeBlock {
-        val configItemBuilder = CodeBlock.builder()
+    private fun generateConfigItemDescriptor(property: PropertyData, groupName: String): CodeBlock {
+        val descriptorBuilder = CodeBlock.builder()
         
         when (property.dataType) {
             DataType.OPTION -> {
+                // Generate choice list for option properties
                 val choiceListBlock = CodeBlock.builder().add("listOf(").apply {
                     property.optionItems.forEachIndexed { i, optionItem ->
                         add(
@@ -253,16 +294,16 @@ class ConfigImplGenerator {
                     }
                 }.add(")").build()
                 
-                configItemBuilder.add(
+                descriptorBuilder.add(
                     "%T<%T>(\n",
                     ClassName("io.github.mambawow.appconfig", "OptionConfigItem"),
                     property.typeName
                 )
-                configItemBuilder.indent()
+                descriptorBuilder.indent()
                     .add("choices = %L,\n", choiceListBlock)
             }
             else -> {
-                configItemBuilder.add(
+                descriptorBuilder.add(
                     "%T<%T>(\n",
                     ClassName("io.github.mambawow.appconfig", "StandardConfigItem"),
                     property.typeName
@@ -270,26 +311,18 @@ class ConfigImplGenerator {
             }
         }
         
-        configItemBuilder
+        // Add common properties
+        descriptorBuilder
             .add("key = %S,\n", property.key)
             .add("groupName = %S,\n", groupName)
             .add("description = %S,\n", property.description)
-            .add("getCurrentValue = { this.%L },\n", property.name) // 直接引用属性
+            .add("getCurrentValue = { this.%L },\n", property.name)
         
+        // Add type-specific properties
         if (property.dataType == DataType.OPTION) {
             val defaultOptionId = property.defaultValue as Int
             
-            // Build properly formatted when expression with correct indentation
-            val whenExpressionBuilder = CodeBlock.builder()
-            whenExpressionBuilder.add("when(newValue) {\n").indent()
-            
-            property.optionItems.forEach { optionItem ->
-                whenExpressionBuilder.add("is %T -> %L\n", optionItem.typeName, optionItem.optionId)
-            }
-            whenExpressionBuilder.add("else -> %L\n", defaultOptionId)
-            whenExpressionBuilder.unindent().add("}")
-            
-            configItemBuilder.add("defaultOptionId = %L,\n", defaultOptionId)
+            descriptorBuilder.add("defaultOptionId = %L,\n", defaultOptionId)
                 .add("updateValue = { newValue -> this.%L = newValue as %T },\n", property.name, property.typeName)
                 .add("resetToDefault = { \n")
                 .indent()
@@ -302,100 +335,119 @@ class ConfigImplGenerator {
                 .unindent()
                 .add("}\n")
         } else {
-            val defaultValueExpr = createDefaultValueCodeBlock(property.dataType, property.defaultValue)
-            configItemBuilder.add("defaultValue = %L,\n", defaultValueExpr)
+            val defaultValueExpression = createDefaultValueCodeBlock(property.dataType, property.defaultValue)
+            descriptorBuilder.add("defaultValue = %L,\n", defaultValueExpression)
                 .add("panelType = %T.%L,\n", ClassName("io.github.mambawow.appconfig", "PanelType"), property.panelType.name)
                 .add("dataType = %T.%L,\n", ClassName("io.github.mambawow.appconfig", "DataType"), property.dataType.name)
                 .add("updateValue = { newValue -> this.%L = newValue as %T },\n", property.name, property.typeName)
-                .add("resetToDefault = { this.%L = %L }\n", property.name, defaultValueExpr)
+                .add("resetToDefault = { this.%L = %L }\n", property.name, defaultValueExpression)
         }
         
-        configItemBuilder.unindent().add(")")
-        return configItemBuilder.build()
+        descriptorBuilder.unindent().add(")")
+        return descriptorBuilder.build()
     }
     
     /**
-     * 生成updateFromMap方法
+     * Generates the updateFromMap method for bulk configuration updates.
+     * @param configData Complete configuration metadata
+     * @return FunSpec for the updateFromMap method
      */
-    private fun generateUpdateFromMapMethod(configData: ConfigData): FunSpec {
-        val updateFromMapFunc = FunSpec.builder("updateFromMap")
+    private fun generateBulkUpdateMethod(configData: ConfigData): FunSpec {
+        val updateMethod = FunSpec.builder("updateFromMap")
             .addModifiers(KModifier.SUSPEND)
             .addParameter("data", Map::class.asClassName().parameterizedBy(String::class.asClassName(), ANY))
         
         if (configData.properties.isNotEmpty()) {
-            updateFromMapFunc.beginControlFlow("data.forEach { (key, value) ->")
+            updateMethod.beginControlFlow("data.forEach { (key, value) ->")
                 .beginControlFlow("when (key)")
             
             configData.properties.forEach { property ->
                 when (property.dataType) {
-                    DataType.OPTION -> updateFromMapFunc.addCode(
-                        CodeBlock.builder()
-                            .addStatement("    %S -> when (value) {", property.key).indent()
-                            .addStatement("is Int -> {")
-                            .indent()
-                            .apply {
-                                // 根据 optionId 设置正确的选项
-                                property.optionItems.forEach { optionItem ->
-                                    addStatement("if (value == %L) this.%L = %T", optionItem.optionId, property.name, optionItem.typeName)
-                                }
-                            }
-                            .unindent()
-                            .addStatement("}")
-                            .unindent().addStatement("}")
-                            .build()
-                    )
-                    else -> updateFromMapFunc.addCode(
-                        CodeBlock.builder()
-                            .add("    %S -> when (value) {\n", property.key).indent()
-                            .apply {
-                                when (property.dataType) {
-                                    DataType.STRING -> addStatement("is String -> this.%L = value", property.name)
-                                    DataType.BOOLEAN -> addStatement("is Boolean -> this.%L = value", property.name)
-                                    DataType.INT -> addStatement(
-                                        "is Int -> this.%L = value\n" +
-                                        "                     is Number -> this.%L = value.toInt()", 
-                                        property.name, 
-                                        property.name
-                                    )
-                                    DataType.LONG -> addStatement(
-                                        "is Long -> this.%L = value\n" +
-                                        "                     is Number -> this.%L = value.toLong()", 
-                                        property.name, 
-                                        property.name
-                                    )
-                                    DataType.FLOAT -> addStatement(
-                                        "is Float -> this.%L = value\n" +
-                                        "                     is Number -> this.%L = value.toFloat()", 
-                                        property.name, 
-                                        property.name
-                                    )
-                                    DataType.DOUBLE -> addStatement(
-                                        "is Double -> this.%L = value\n" +
-                                        "                     is Number -> this.%L = value.toDouble()", 
-                                        property.name, 
-                                        property.name
-                                    )
-                                    else -> {}
-                                }
-                            }
-                            .unindent().addStatement("}")
-                            .build()
-                    )
+                    DataType.OPTION -> generateOptionUpdateCase(updateMethod, property)
+                    else -> generatePrimitiveUpdateCase(updateMethod, property)
                 }
             }
-            updateFromMapFunc.endControlFlow().endControlFlow()
+            updateMethod.endControlFlow().endControlFlow()
         } else {
-            updateFromMapFunc.addComment("No properties to update from map.")
+            updateMethod.addComment("No properties to update from map.")
         }
         
-        return updateFromMapFunc.build()
+        return updateMethod.build()
     }
     
     /**
-     * 生成resetToDefaults方法
+     * Generates update case for option properties in bulk update method.
      */
-    private fun generateResetToDefaultsMethod(configData: ConfigData): FunSpec {
-        val resetDefaultsFunc = FunSpec.builder("resetToDefaults")
+    private fun generateOptionUpdateCase(methodBuilder: FunSpec.Builder, property: PropertyData) {
+        methodBuilder.addCode(
+            CodeBlock.builder()
+                .addStatement("    %S -> when (value) {", property.key).indent()
+                .addStatement("is Int -> {")
+                .indent()
+                .apply {
+                    // Map option ID to corresponding sealed class instance
+                    property.optionItems.forEach { optionItem ->
+                        addStatement("if (value == %L) this.%L = %T", optionItem.optionId, property.name, optionItem.typeName)
+                    }
+                }
+                .unindent()
+                .addStatement("}")
+                .unindent().addStatement("}")
+                .build()
+        )
+    }
+    
+    /**
+     * Generates update case for primitive properties in bulk update method.
+     */
+    private fun generatePrimitiveUpdateCase(methodBuilder: FunSpec.Builder, property: PropertyData) {
+        methodBuilder.addCode(
+            CodeBlock.builder()
+                .add("    %S -> when (value) {\n", property.key).indent()
+                .apply {
+                    when (property.dataType) {
+                        DataType.STRING -> addStatement("is String -> this.%L = value", property.name)
+                        DataType.BOOLEAN -> addStatement("is Boolean -> this.%L = value", property.name)
+                        DataType.INT -> addStatement(
+                            "is Int -> this.%L = value\n" +
+                            "                     is Number -> this.%L = value.toInt()", 
+                            property.name, 
+                            property.name
+                        )
+                        DataType.LONG -> addStatement(
+                            "is Long -> this.%L = value\n" +
+                            "                     is Number -> this.%L = value.toLong()", 
+                            property.name, 
+                            property.name
+                        )
+                        DataType.FLOAT -> addStatement(
+                            "is Float -> this.%L = value\n" +
+                            "                     is Number -> this.%L = value.toFloat()", 
+                            property.name, 
+                            property.name
+                        )
+                        DataType.DOUBLE -> addStatement(
+                            "is Double -> this.%L = value\n" +
+                            "                     is Number -> this.%L = value.toDouble()", 
+                            property.name, 
+                            property.name
+                        )
+                        else -> {}
+                    }
+                }
+                .unindent().addStatement("}")
+                .build()
+        )
+    }
+    
+    /**
+     * Generates the resetToDefaults method for restoring all properties to their defaults.
+     * 
+     * @param configData Complete configuration metadata
+     * @return FunSpec for the resetToDefaults method
+     */
+    private fun generateResetMethod(configData: ConfigData): FunSpec {
+        val resetMethod = FunSpec.builder("resetToDefaults")
             .addModifiers(KModifier.SUSPEND)
         
         configData.properties.forEach { property ->
@@ -403,23 +455,26 @@ class ConfigImplGenerator {
                 DataType.OPTION -> {
                     val defaultOption = property.optionItems.find { it.isDefault }?.typeName
                     if (defaultOption != null) {
-                        resetDefaultsFunc.addStatement("this.%L = %T", property.name, defaultOption)
+                        resetMethod.addStatement("this.%L = %T", property.name, defaultOption)
                     }
                 }
                 else -> {
-                    val defaultValueExpr = createDefaultValueCodeBlock(property.dataType, property.defaultValue)
-                    resetDefaultsFunc.addStatement("this.%L = %L", property.name, defaultValueExpr)
+                    val defaultValueExpression = createDefaultValueCodeBlock(property.dataType, property.defaultValue)
+                    resetMethod.addStatement("this.%L = %L", property.name, defaultValueExpression)
                 }
             }
         }
         
-        return resetDefaultsFunc.build()
+        return resetMethod.build()
     }
     
     /**
-     * 获取Store方法后缀
+     * Gets the ConfigStore method suffix for a given data type.
+     * 
+     * @param dataType The data type to get suffix for
+     * @return Method suffix for ConfigStore operations
      */
-    private fun getStoreMethodSuffix(dataType: DataType): String {
+    private fun getStorageMethodSuffix(dataType: DataType): String {
         return when (dataType) {
             DataType.STRING -> "String"
             DataType.BOOLEAN -> "Boolean"
@@ -432,7 +487,11 @@ class ConfigImplGenerator {
     }
     
     /**
-     * 创建默认值CodeBlock
+     * Creates a CodeBlock for a default value based on its data type.
+     * 
+     * @param dataType The data type of the value
+     * @param defaultValue The default value to represent
+     * @return CodeBlock representing the value in Kotlin code
      */
     private fun createDefaultValueCodeBlock(dataType: DataType, defaultValue: Any?): CodeBlock {
         return when (dataType) {

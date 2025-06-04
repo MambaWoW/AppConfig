@@ -7,55 +7,39 @@ import io.github.mambawow.appconfig.parser.ConfigClassParser
 import io.github.mambawow.appconfig.parser.PropertyParser
 
 /**
- * 处理器工厂
- * 负责创建和管理各个组件的依赖关系
+ * Factory for creating and managing AppConfig processor components.
  * 
- * 应用工厂模式和依赖注入原则
+ * This factory implements the Factory pattern and dependency injection principles
+ * to manage the creation and wiring of all processor components.
+ *
+ * All components are stateless and can be safely reused across processing cycles.
  */
 object ProcessorFactory {
-    
-    /**
-     * 创建属性解析器
-     */
+
     fun createPropertyParser(logger: KSPLogger): PropertyParser {
         return PropertyParser(logger)
     }
-    
-    /**
-     * 创建配置类解析器
-     */
+
     fun createConfigClassParser(logger: KSPLogger): ConfigClassParser {
         val propertyParser = createPropertyParser(logger)
         return ConfigClassParser(logger, propertyParser)
     }
-    
-    /**
-     * 创建配置实现生成器
-     */
+
     fun createConfigImplGenerator(): ConfigImplGenerator {
         return ConfigImplGenerator()
     }
-    
-    /**
-     * 创建扩展生成器
-     */
+
     fun createExtensionGenerator(): ExtensionGenerator {
         return ExtensionGenerator()
     }
-    
-    /**
-     * 创建所有组件的集合
-     */
+
     data class ProcessorComponents(
         val propertyParser: PropertyParser,
         val configClassParser: ConfigClassParser,
         val configImplGenerator: ConfigImplGenerator,
         val extensionGenerator: ExtensionGenerator
     )
-    
-    /**
-     * 一次性创建所有组件
-     */
+
     fun createAllComponents(logger: KSPLogger): ProcessorComponents {
         val propertyParser = createPropertyParser(logger)
         val configClassParser = ConfigClassParser(logger, propertyParser)

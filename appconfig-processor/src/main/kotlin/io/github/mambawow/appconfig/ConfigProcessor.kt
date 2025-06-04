@@ -15,21 +15,38 @@ import io.github.mambawow.appconfig.model.ConfigData
 import io.github.mambawow.appconfig.model.ConfigError
 import java.io.OutputStreamWriter
 
+/**
+ * Main KSP processor for the AppConfig library.
+ * 
+ * This processor analyzes @Config annotated interfaces and generates:
+ * - Individual implementation classes for each config interface
+ * - Extension properties for convenient access to configuration instances
+ * - Global helper methods for configuration management across all groups
+ * 
+ * The processor supports both single-platform and multiplatform projects, generating
+ * separate files for each configuration class to enable efficient incremental compilation.
+ * 
+ * For multiplatform projects, it generates `expect` declarations in commonMain and
+ * `actual` implementations in platform-specific source sets.
+ */
 class ConfigProcessor(
     private val codeGenerator: CodeGenerator,
     private val logger: KSPLogger,
     private val options: Map<String, String>
 ) : SymbolProcessor {
 
-    private var processed = false
-
-    private val isMultiplatform = options["AppConfig_isMultiplatform"]?.toInt() == 1
-
-    private val components = ProcessorFactory.createAllComponents(logger)
+    private var hasProcessed = false
+    private val isMultiplatformProject = options["AppConfig_isMultiplatform"]?.toInt() == 1
+    private val processorComponents = ProcessorFactory.createAllComponents(logger)
     
     companion object {
+        /** Package name for all generated files */
         const val GENERATED_PACKAGE_NAME = "io.github.mambawow.appconfig"
+        
+        /** Prefix for generated implementation class names */
         const val GENERATED_CLASS_NAME_PREFIX = "AppConfig_"
+        
+        private const val COMMON_MAIN_MODULE_NAME = "commonMain"
 
         val PropertyAnnotationQualifiedNames = listOf(
             IntProperty::class.qualifiedName,
@@ -43,42 +60,46 @@ class ConfigProcessor(
     }
 
     override fun process(resolver: Resolver): List<KSAnnotated> {
-        if (processed) return emptyList()
+        if (hasProcessed) return emptyList()
 
-        logger.warn("isMultiplatform: $isMultiplatform")
         try {
-            val configClasses = getValidConfigClasses(resolver)
-            if (configClasses.isEmpty()) {
+            val configurationClasses = findValidConfigurationClasses(resolver)
+            if (configurationClasses.isEmpty()) {
                 logger.info("No classes found with @Config annotation. Skipping processing.")
-                processed = true
-                return emptyList()
+                return completeProcessing()
             }
             
-            val configDataList = parseConfigClasses(configClasses)
-            if (configDataList.isEmpty()) {
+            val configurationDataList = parseConfigurationClasses(configurationClasses)
+            if (configurationDataList.isEmpty()) {
                 logger.warn("No valid config classes found after parsing.")
-                processed = true
-                return emptyList()
+                return completeProcessing()
             }
             
-            validateUniqueGroupNamesAndKeys(configDataList)
-            generateCode(configDataList, resolver)
+            validateConfigurationIntegrity(configurationDataList)
+            generateAllCodeFiles(configurationDataList, resolver)
             
         } catch (e: Exception) {
             logger.error("Error during processing: ${e.message}\n${e.stackTraceToString()}")
-        } finally {
-            processed = true
         }
         
+        return completeProcessing()
+    }
+
+    private fun completeProcessing(): List<KSAnnotated> {
+        hasProcessed = true
         return emptyList()
     }
     
     /**
-     * 获取有效的配置类
+     * Finds and validates all classes annotated with @Config.
+     * 
+     * @param resolver The KSP resolver for symbol resolution
+     * @return List of valid configuration class declarations
      */
-    private fun getValidConfigClasses(resolver: Resolver): List<KSClassDeclaration> {
-        // 验证注解使用是否正确
+    private fun findValidConfigurationClasses(resolver: Resolver): List<KSClassDeclaration> {
         val annotatedSymbols = resolver.getSymbolsWithAnnotation(Config::class.qualifiedName!!)
+        
+        // Validate that only interfaces are annotated with @Config
         annotatedSymbols.forEach { symbol ->
             if (symbol !is KSClassDeclaration) {
                 logger.error(ConfigError.ONLY_INTERFACES_CAN_BE_ANNOTATED, symbol)
@@ -92,12 +113,15 @@ class ConfigProcessor(
     }
     
     /**
-     * 解析配置类
+     * Parses configuration classes into structured data models.
+     * 
+     * @param configClasses List of configuration class declarations to parse
+     * @return List of parsed configuration data models
      */
-    private fun parseConfigClasses(configClasses: List<KSClassDeclaration>): List<ConfigData> {
+    private fun parseConfigurationClasses(configClasses: List<KSClassDeclaration>): List<ConfigData> {
         return configClasses.mapNotNull { configClass ->
             try {
-                components.configClassParser.parseConfigClass(configClass)
+                processorComponents.configClassParser.parseConfigClass(configClass)
             } catch (e: Exception) {
                 logger.error("Error parsing config class ${configClass.simpleName.asString()}: ${e.message}", configClass)
                 null
@@ -106,24 +130,44 @@ class ConfigProcessor(
     }
     
     /**
-     * 验证组名和属性键的唯一性
+     * Validates configuration integrity including unique group names and property keys.
+     * 
+     * @param configDataList List of configuration data to validate
      */
-    private fun validateUniqueGroupNamesAndKeys(configDataList: List<ConfigData>) {
-        // 验证组名唯一性
-        val groupNames = mutableSetOf<String>()
+    private fun validateConfigurationIntegrity(configDataList: List<ConfigData>) {
+        validateUniqueGroupNames(configDataList)
+        validateUniquePropertyKeysWithinGroups(configDataList)
+    }
+    
+    /**
+     * Validates that all group names are unique across the project.
+     * 
+     * @param configDataList List of configuration data to validate
+     */
+    private fun validateUniqueGroupNames(configDataList: List<ConfigData>) {
+        val encounteredGroupNames = mutableSetOf<String>()
+        
         configDataList.forEach { configData ->
-            if (configData.groupName in groupNames) {
+            if (configData.groupName in encounteredGroupNames) {
                 logger.error(
                     ConfigError.duplicateGroupName(configData.groupName, configData.name)
                 )
             } else {
-                groupNames.add(configData.groupName)
+                encounteredGroupNames.add(configData.groupName)
             }
         }
-        
-        // 验证属性键在组内的唯一性
+    }
+    
+    /**
+     * Validates that property keys are unique within each configuration group.
+     * Different groups may have duplicate keys, but within a group all keys must be unique.
+     * 
+     * @param configDataList List of configuration data to validate
+     */
+    private fun validateUniquePropertyKeysWithinGroups(configDataList: List<ConfigData>) {
         configDataList.forEach { configData ->
             val groupPropertyKeys = mutableMapOf<String, String>() // key -> propertyName
+            
             configData.properties.forEach { propertyData ->
                 val existingPropertyName = groupPropertyKeys[propertyData.key]
                 if (existingPropertyName != null) {
@@ -142,11 +186,11 @@ class ConfigProcessor(
         }
     }
 
-    private val commonMainModuleName = "commonMain"
-
-    @OptIn(KspExperimental::class)
-    private fun Resolver.isCommonMain(): Boolean {
-        return moduleName().contains(commonMainModuleName)
+    /**
+     * Determines if the current module is the commonMain module in a multiplatform project.
+     */
+    private fun Resolver.isCommonMainModule(): Boolean {
+        return moduleName().contains(COMMON_MAIN_MODULE_NAME)
     }
 
     @OptIn(KspExperimental::class)
@@ -159,123 +203,197 @@ class ConfigProcessor(
     }
 
     /**
-     * 生成代码
+     * Generates all necessary code files for the given configuration data.
+     * 
+     * For multiplatform projects:
+     * - Generates expect declarations in commonMain
+     * - Generates actual implementations in platform-specific modules
+     * 
+     * @param configDataList List of configuration data to generate code for
+     * @param resolver The KSP resolver for module information
      */
     @OptIn(KspExperimental::class)
-    private fun generateCode(configDataList: List<ConfigData>, resolver: Resolver) {
+    private fun generateAllCodeFiles(configDataList: List<ConfigData>, resolver: Resolver) {
         val moduleName = resolver.moduleName()
-        val isCommonMain = resolver.isCommonMain()
-        val allConfigClasses = configDataList.map { it.groupName to it.name }
+        val isCommonMainModule = resolver.isCommonMainModule()
+        val allConfigurationClasses = configDataList.map { it.groupName to it.name }
 
-        // 为每个配置类生成单独的文件
+        // Generate individual implementation files for each configuration class
         configDataList.forEach { configData ->
-            if (shouldProcessConfigData(configData, isCommonMain)) {
-                generateConfigFile(configData, moduleName)
+            if (shouldProcessConfigurationData(configData, isCommonMainModule)) {
+                generateConfigurationImplementationFile(configData, moduleName)
             }
         }
         
-        // 生成全局扩展方法文件 - 不是只处理当前模块的配置文件，而是全部的。
-        // 只不过是在 commonmain中生成expect方法，而在具体的target比如 android ios中生成 actual 方法
+        // Generate global extension methods file containing helper functions
+        // for all configuration groups
         if (configDataList.isNotEmpty()) {
-            generateGlobalExtensionsFile(allConfigClasses, isCommonMain, moduleName, configDataList)
+            generateGlobalExtensionsFile(
+                allConfigurationClasses, 
+                isCommonMainModule, 
+                moduleName, 
+                configDataList
+            )
         }
     }
     
     /**
-     * 判断是否应该处理指定的配置数据
+     * Determines whether the given configuration data should be processed for the current module.
+     * 
+     * For single-platform projects, all configurations are always processed.
+     * For multiplatform projects, only configurations from the appropriate source set are processed.
+     * 
+     * @param configData Configuration data to check
+     * @param isCommonMainModule Whether the current module is commonMain
+     * @return true if the configuration should be processed, false otherwise
      */
-    private fun shouldProcessConfigData(configData: ConfigData, isCommonMain: Boolean): Boolean {
-        if (!isMultiplatform) return true
+    private fun shouldProcessConfigurationData(configData: ConfigData, isCommonMainModule: Boolean): Boolean {
+        if (!isMultiplatformProject) return true
         
-        return if (isCommonMain) {
-            configData.ksFile.filePath.contains(commonMainModuleName)
+        return if (isCommonMainModule) {
+            configData.ksFile.filePath.contains(COMMON_MAIN_MODULE_NAME)
         } else {
-            !configData.ksFile.filePath.contains(commonMainModuleName)
+            !configData.ksFile.filePath.contains(COMMON_MAIN_MODULE_NAME)
         }
     }
     
     /**
-     * 为单个配置类生成文件
+     * Generates implementation file for a single configuration class.
+     * 
+     * Each file contains:
+     * - The implementation class for the configuration interface
+     * - An extension property for convenient access to the configuration instance
+     * 
+     * @param configData Configuration data to generate implementation for
+     * @param moduleName Current module name for file naming
      */
-    private fun generateConfigFile(configData: ConfigData, moduleName: String) {
-        val fileSpecBuilder = createConfigFileSpecBuilder(configData.implName)
+    private fun generateConfigurationImplementationFile(configData: ConfigData, moduleName: String) {
+        val fileSpecBuilder = createConfigurationFileSpecBuilder(configData.implName)
         
-        // 生成配置实现类
-        val configImpl = components.configImplGenerator.generateConfigImpl(configData)
-        fileSpecBuilder.addType(configImpl)
+        // Generate the configuration implementation class
+        val configurationImplementation = processorComponents.configImplGenerator.generateConfigImpl(configData)
+        fileSpecBuilder.addType(configurationImplementation)
         
-        // 生成扩展属性
-        val extensionProperty = components.extensionGenerator.generateExtensionProperty(configData, GENERATED_PACKAGE_NAME)
+        // Generate extension property for convenient access
+        val extensionProperty = processorComponents.extensionGenerator.generateExtensionProperty(
+            configData, 
+            GENERATED_PACKAGE_NAME
+        )
         fileSpecBuilder.addProperty(extensionProperty)
         
-        // 写入文件 - 只依赖于当前配置文件
+        // Write file with dependencies optimized for incremental compilation
         val dependencies = Dependencies(aggregating = false, sources = arrayOf(configData.ksFile))
-        writeConfigFile(fileSpecBuilder.build(), configData.implName, moduleName, dependencies)
+        writeGeneratedFile(fileSpecBuilder.build(), configData.implName, moduleName, dependencies)
     }
     
     /**
-     * 生成全局扩展方法文件
+     * Generates file containing global extension methods for configuration management.
+     * 
+     * The generated methods include:
+     * - getAllConfigItems(): Retrieves all configuration items across all groups
+     * - updateAllFromRemote(): Updates all configurations from remote data
+     * - resetAllToDefaults(): Resets all configurations to their default values
+     * 
+     * @param allConfigurationClasses List of all configuration class metadata
+     * @param isCommonMainModule Whether generating for commonMain module
+     * @param moduleName Current module name
+     * @param configDataList List of configuration data for dependency tracking
      */
     private fun generateGlobalExtensionsFile(
-        allConfigClasses: List<Pair<String, String>>,
-        isCommonMain: Boolean,
+        allConfigurationClasses: List<Pair<String, String>>,
+        isCommonMainModule: Boolean,
         moduleName: String,
         configDataList: List<ConfigData>
     ) {
-        val fileSpecBuilder = createExtensionFileSpecBuilder("AppConfigExtensions")
+        val fileSpecBuilder = createExtensionMethodsFileSpecBuilder("AppConfigExtensions")
         
-        // 生成全局扩展方法
-        fileSpecBuilder.addFunction(components.extensionGenerator.generateGetAllConfigItemsMethod(allConfigClasses, isCommonMain, isMultiplatform))
-        fileSpecBuilder.addFunction(components.extensionGenerator.generateUpdateAllFromRemoteMethod(allConfigClasses, isCommonMain, isMultiplatform))
-        fileSpecBuilder.addFunction(components.extensionGenerator.generateResetAllToDefaultsMethod(allConfigClasses, isCommonMain, isMultiplatform))
+        // Generate global extension methods
+        val extensionGenerator = processorComponents.extensionGenerator
+        fileSpecBuilder.addFunction(
+            extensionGenerator.generateGetAllConfigItemsMethod(
+                allConfigurationClasses, 
+                isCommonMainModule, 
+                isMultiplatformProject
+            )
+        )
+        fileSpecBuilder.addFunction(
+            extensionGenerator.generateUpdateAllFromRemoteMethod(
+                allConfigurationClasses, 
+                isCommonMainModule, 
+                isMultiplatformProject
+            )
+        )
+        fileSpecBuilder.addFunction(
+            extensionGenerator.generateResetAllToDefaultsMethod(
+                allConfigurationClasses, 
+                isCommonMainModule, 
+                isMultiplatformProject
+            )
+        )
         
-        // 写入文件 - 依赖于所有配置文件
-        val allConfigFiles = configDataList.map { it.ksFile }.toTypedArray()
-        val dependencies = Dependencies(aggregating = true, sources = allConfigFiles)
-        writeConfigFile(fileSpecBuilder.build(), "AppConfigExtensions", moduleName, dependencies)
+        // Write file with dependencies on all configuration source files
+        val allConfigurationSourceFiles = configDataList.map { it.ksFile }.toTypedArray()
+        val dependencies = Dependencies(aggregating = true, sources = allConfigurationSourceFiles)
+        writeGeneratedFile(fileSpecBuilder.build(), "AppConfigExtensions", moduleName, dependencies)
     }
     
     /**
-     * 创建配置文件规格构建器
+     * Creates a FileSpec builder for configuration implementation files.
+     * 
+     * @param className Name of the class being generated
+     * @return FileSpec builder with necessary imports
      */
-    private fun createConfigFileSpecBuilder(className: String): FileSpec.Builder {
-        val fileSpecBuilder = FileSpec.builder(GENERATED_PACKAGE_NAME, className)
-        
-        // 添加配置文件需要的导入
-        fileSpecBuilder.addImport("io.github.mambawow.appconfig", "AppConfig", "ConfigItemDescriptor", "StandardConfigItem", "OptionConfigItem", "OptionItemDescriptor", "DataType", "PanelType")
-        fileSpecBuilder.addImport("io.github.mambawow.appconfig.store", "ConfigStore")
-        
-        return fileSpecBuilder
+    private fun createConfigurationFileSpecBuilder(className: String): FileSpec.Builder {
+        return FileSpec.builder(GENERATED_PACKAGE_NAME, className).apply {
+            // Import classes needed for configuration implementations
+            addImport(
+                "io.github.mambawow.appconfig", 
+                "AppConfig", "ConfigItemDescriptor", "StandardConfigItem", 
+                "OptionConfigItem", "OptionItemDescriptor", "DataType", "PanelType"
+            )
+            addImport("io.github.mambawow.appconfig.store", "ConfigStore")
+        }
     }
     
     /**
-     * 创建扩展文件规格构建器
+     * Creates a FileSpec builder for extension methods files.
+     * 
+     * @param className Name of the class being generated
+     * @return FileSpec builder with necessary imports
      */
-    private fun createExtensionFileSpecBuilder(className: String): FileSpec.Builder {
-        val fileSpecBuilder = FileSpec.builder(GENERATED_PACKAGE_NAME, className)
-        
-        // 添加扩展文件需要的导入
-        fileSpecBuilder.addImport("io.github.mambawow.appconfig", "AppConfig", "ConfigItemDescriptor")
-        
-        return fileSpecBuilder
+    private fun createExtensionMethodsFileSpecBuilder(className: String): FileSpec.Builder {
+        return FileSpec.builder(GENERATED_PACKAGE_NAME, className).apply {
+            // Import classes needed for extension methods
+            addImport("io.github.mambawow.appconfig", "AppConfig", "ConfigItemDescriptor")
+        }
     }
     
     /**
-     * 写入生成的文件
+     * Writes the generated file to the output directory.
+     * 
+     * @param fileSpec The generated file specification
+     * @param className Name of the class for error reporting
+     * @param moduleName Current module name for file naming
+     * @param dependencies File dependencies for incremental compilation
      */
-    private fun writeConfigFile(fileSpec: FileSpec, className: String, moduleName: String, dependencies: Dependencies) {
+    private fun writeGeneratedFile(
+        fileSpec: FileSpec, 
+        className: String, 
+        moduleName: String, 
+        dependencies: Dependencies
+    ) {
         try {
-            val fileStream = codeGenerator.createNewFile(
+            val outputStream = codeGenerator.createNewFile(
                 dependencies,
                 GENERATED_PACKAGE_NAME,
-                className + "_" + moduleName
+                "${className}_${moduleName}"
             )
             
-            OutputStreamWriter(fileStream, Charsets.UTF_8).use { writer ->
+            OutputStreamWriter(outputStream, Charsets.UTF_8).use { writer ->
                 writer.write(fileSpec.toString())
             }
         } catch (e: Exception) {
-            logger.error("✗ Error generating $className: ${e.message}\n${e.stackTraceToString()}")
+            logger.error("Error generating $className: ${e.message}\n${e.stackTraceToString()}")
         }
     }
 } 

@@ -1,4 +1,3 @@
-val enableSigning = project.hasProperty("signingInMemoryKey")
 
 plugins {
     kotlin("jvm")
@@ -11,6 +10,18 @@ dependencies {
     implementation(libs.kspApi)
     implementation(libs.kotlinPoet)
     implementation(libs.kotlinPoet.ksp)
+    
+    // Test dependencies
+    testImplementation(kotlin("test"))
+    testImplementation(libs.junit)
+    testImplementation(libs.kotlin.compile.testing)
+    testImplementation(libs.kotlin.compile.testing.ksp)
+    testImplementation(libs.mockito.core)
+    testImplementation(libs.mockito.kotlin)
+}
+
+tasks.test {
+    useJUnitPlatform()
 }
 
 mavenPublishing {
@@ -20,9 +31,6 @@ mavenPublishing {
         libs.versions.version.get(),
     )
     publishToMavenCentral()
-    if (enableSigning) {
-        signAllPublications()
-    }
 }
 
 

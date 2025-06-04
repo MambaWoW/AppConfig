@@ -10,8 +10,19 @@ import io.github.mambawow.appconfig.model.*
 import io.github.mambawow.appconfig.ConfigProcessor.Companion.PropertyAnnotationQualifiedNames
 
 /**
- * 配置类解析器
- * 负责将KSClassDeclaration转换为ConfigData
+ * Parser for analyzing configuration classes annotated with @Config.
+ * 
+ * This parser transforms KSClassDeclaration instances into ConfigData models
+ * that contain all the metadata needed for code generation. It handles:
+ * 
+ * - Validation of class structure (must be interface)
+ * - Extraction of group name from @Config annotation
+ * - Convention over configuration (class name as default group name)
+ * - Property parsing and validation
+ * - Kotlin identifier validation for group names
+ * 
+ * The parser applies convention over configuration principles - when the
+ * groupName in @Config is empty, it defaults to using the class name.
  */
 class ConfigClassParser(
     private val logger: KSPLogger,
@@ -19,11 +30,16 @@ class ConfigClassParser(
 ) {
 
     companion object {
-        // Kotlin 关键字列表
-        private val kotlinKeywords = setOf(
+        /**
+         * Set of reserved Kotlin keywords that cannot be used as identifiers.
+         */
+        private val KOTLIN_KEYWORDS = setOf(
+            // Hard keywords
             "as", "break", "class", "continue", "do", "else", "false", "for", "fun", "if",
             "in", "interface", "is", "null", "object", "package", "return", "super", "this",
             "throw", "true", "try", "typealias", "typeof", "val", "var", "when", "while",
+            
+            // Soft keywords and modifiers
             "by", "catch", "constructor", "delegate", "dynamic", "field", "file", "finally",
             "get", "import", "init", "param", "property", "receiver", "set", "setparam",
             "where", "actual", "abstract", "annotation", "companion", "const", "crossinline",
@@ -34,21 +50,22 @@ class ConfigClassParser(
         )
 
         /**
-         * 验证字符串是否为有效的Kotlin标识符
-         * @param identifier 要验证的标识符
-         * @return true如果是有效的Kotlin标识符，false否则
+         * Validates whether a string is a valid Kotlin identifier.
+         * 
+         * @param identifier The string to validate as a Kotlin identifier
+         * @return true if the identifier is valid, false otherwise
          */
         fun isValidKotlinIdentifier(identifier: String): Boolean {
             if (identifier.isBlank()) return false
             
-            // 检查是否为Kotlin关键字
-            if (identifier in kotlinKeywords) return false
+            // Check if it's a Kotlin keyword
+            if (identifier in KOTLIN_KEYWORDS) return false
             
-            // 检查第一个字符：必须是字母或下划线
+            // Check first character: must be letter or underscore
             val firstChar = identifier.first()
             if (!firstChar.isLetter() && firstChar != '_') return false
             
-            // 检查其余字符：必须是字母、数字或下划线
+            // Check remaining characters: must be letters, digits, or underscores
             return identifier.drop(1).all { char ->
                 char.isLetterOrDigit() || char == '_'
             }
@@ -56,42 +73,22 @@ class ConfigClassParser(
     }
 
     /**
-     * 解析配置类
+     * Parses a configuration class into a ConfigData model.
+     * @param configClass The KSClassDeclaration to parse
+     * @return ConfigData model containing all parsed metadata, or null if validation fails
      */
     fun parseConfigClass(configClass: KSClassDeclaration): ConfigData? {
-        // 验证类的基本要求
-        if (!validateClass(configClass)) {
+        // Validate basic class requirements
+        if (!validateClassStructure(configClass)) {
             return null
         }
 
-        val groupAnnotation = configClass.annotations.first { 
-            it.shortName.asString() == Config::class.simpleName 
-        }
-        val annotationGroupName = groupAnnotation.arguments.firstOrNull { 
-            it.name?.asString() == "groupName" 
-        }?.value as? String ?: ""
-
-        // 如果groupName为空字符串，使用类名作为默认值
-        val groupName = if (annotationGroupName.isBlank()) {
-            configClass.simpleName.asString()
-        } else {
-            annotationGroupName
-        }
-
-        // 验证groupName是否为合法的Kotlin标识符
-        if (!isValidKotlinIdentifier(groupName)) {
-            logger.error(
-                ConfigError.invalidGroupName(configClass.simpleName.asString(), groupName), 
-                configClass
-            )
-            return null
-        }
-
+        val groupName = extractAndValidateGroupName(configClass) ?: return null
         val packageName = configClass.packageName.asString()
         val className = configClass.simpleName.asString()
 
-        // 解析属性
-        val properties = parseProperties(configClass)
+        // Parse all annotated properties in the interface
+        val properties = parseConfigurationProperties(configClass)
         if (properties.isEmpty()) {
             logger.error("No valid properties found in class '$className'")
         }
@@ -108,16 +105,23 @@ class ConfigClassParser(
     }
 
     /**
-     * 验证类的基本要求
+     * Validates the basic structure requirements for configuration classes.
+     * 
+     * Configuration classes must:
+     * - Be interfaces (not classes, objects, etc.)
+     * - Have a non-empty package name
+     * 
+     * @param configClass The class declaration to validate
+     * @return true if the class meets structural requirements, false otherwise
      */
-    private fun validateClass(configClass: KSClassDeclaration): Boolean {
-        // 检查是否为接口或类
+    private fun validateClassStructure(configClass: KSClassDeclaration): Boolean {
+        // Must be an interface
         if (configClass.classKind != ClassKind.INTERFACE) {
             logger.error(ConfigError.ONLY_INTERFACES_CAN_BE_ANNOTATED, configClass)
             return false
         }
 
-        // 检查是否有包名
+        // Must have a package name
         if (configClass.packageName.asString().isEmpty()) {
             logger.error("Interface needs to have a package", configClass)
             return false
@@ -127,16 +131,54 @@ class ConfigClassParser(
     }
 
     /**
-     * 解析属性列表
+     * Extracts and validates the group name from the @Config annotation.
+     * @param configClass The configuration class with @Config annotation
+     * @return Valid group name, or null if validation fails
      */
-    private fun parseProperties(configClass: KSClassDeclaration): List<PropertyData> {
-        val validProperties = configClass.getDeclaredProperties()
+    private fun extractAndValidateGroupName(configClass: KSClassDeclaration): String? {
+        val configAnnotation = configClass.annotations.first { 
+            it.shortName.asString() == Config::class.simpleName 
+        }
+        
+        val annotationGroupName = configAnnotation.arguments.firstOrNull { 
+            it.name?.asString() == "groupName" 
+        }?.value as? String ?: ""
+
+        // Apply convention over configuration: use class name if groupName is empty
+        val groupName = if (annotationGroupName.isBlank()) {
+            configClass.simpleName.asString()
+        } else {
+            annotationGroupName
+        }
+
+        // Validate that the group name is a valid Kotlin identifier
+        if (!isValidKotlinIdentifier(groupName)) {
+            logger.error(
+                ConfigError.invalidGroupName(configClass.simpleName.asString(), groupName), 
+                configClass
+            )
+            return null
+        }
+
+        return groupName
+    }
+
+    /**
+     * Parses all configuration properties declared in the interface.
+     *
+     * @param configClass The configuration interface to parse properties from
+     * @return List of successfully parsed PropertyData models
+     */
+    private fun parseConfigurationProperties(configClass: KSClassDeclaration): List<PropertyData> {
+        val annotatedProperties = configClass.getDeclaredProperties()
             .filter { property -> 
+                // Find properties with configuration property annotations
                 property.annotations.any { annotation ->
                     annotation.annotationType.resolve().declaration.qualifiedName?.asString() in PropertyAnnotationQualifiedNames
                 }
             }
             .filter { property ->
+                // Filter out properties with unresolvable types
                 val type = property.type.resolve()
                 if (type.isError) {
                     logger.warn(
@@ -149,7 +191,8 @@ class ConfigClassParser(
                 }
             }
 
-        return validProperties.mapNotNull { property ->
+        // Parse each valid property using the property parser
+        return annotatedProperties.mapNotNull { property ->
             propertyParser.parseProperty(property, configClass)
         }.toList()
     }

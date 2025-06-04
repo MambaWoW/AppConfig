@@ -10,15 +10,33 @@ import io.github.mambawow.appconfig.ConfigProcessor.Companion.PropertyAnnotation
 import io.github.mambawow.appconfig.model.*
 
 /**
- * 属性解析器
- * 负责解析单个属性并转换为PropertyData
+ * Parser for analyzing individual configuration properties.
+ * 
+ * This parser transforms KSPropertyDeclaration instances annotated with configuration
+ * property annotations into PropertyData models.
+ * 
+ * The parser supports all configuration property types:
+ * - StringProperty, BooleanProperty, IntProperty, LongProperty, FloatProperty, DoubleProperty
+ * - OptionProperty (for sealed class-based enumeration types)
  */
 class PropertyParser(
     private val logger: KSPLogger
 ) {
 
     /**
-     * 解析属性
+     * Parses a configuration property into a PropertyData model.
+     * 
+     * This method performs comprehensive analysis of a property annotated with
+     * a configuration property annotation:
+     * 1. Identifies the annotation type and extracts parameters
+     * 2. Applies convention over configuration for the storage key
+     * 3. Determines the appropriate data type
+     * 4. Parses default values and option items (for option properties)
+     * 5. Infers the appropriate UI panel type
+     * 
+     * @param property The property declaration to parse
+     * @param containingClass The class containing this property (for context)
+     * @return PropertyData model with all parsed metadata, or null if parsing fails
      */
     fun parseProperty(property: KSPropertyDeclaration, containingClass: KSClassDeclaration): PropertyData? {
         val propertyAnnotation = property.annotations.first { 
@@ -26,29 +44,22 @@ class PropertyParser(
         }
         
         val annotationName = propertyAnnotation.shortName.asString()
-        val annotationArgs = propertyAnnotation.arguments.associateBy { it.name!!.asString() }
+        val annotationArguments = propertyAnnotation.arguments.associateBy { it.name!!.asString() }
         
-        // 获取key参数，如果为空字符串则使用属性名作为默认值
-        val keyArg = annotationArgs["key"]
-        val annotationKey = keyArg?.value as? String ?: ""
-        val key = if (annotationKey.isBlank()) {
-            property.simpleName.asString()
-        } else {
-            annotationKey
-        }
-        
-        val description = annotationArgs["description"]?.value as? String ?: ""
+        // Apply convention over configuration: use property name as key if annotation key is empty
+        val storageKey = extractStorageKey(annotationArguments, property)
+        val description = annotationArguments["description"]?.value as? String ?: ""
         val propertyName = property.simpleName.asString()
         val propertyKSType = property.type.resolve()
         val propertyTypeName = propertyKSType.toTypeName()
         
-        // 确定数据类型
+        // Determine the internal data type classification
         val dataType = determineDataType(annotationName, propertyName) ?: return null
         
-        // 解析默认值和选项项
+        // Parse default value and option items based on data type
         val (defaultValue, optionItems) = when (dataType) {
             DataType.OPTION -> parseOptionProperty(property, propertyKSType, propertyName)
-            else -> parsePrimitiveProperty(annotationArgs, annotationName, propertyName)
+            else -> parsePrimitiveProperty(annotationArguments, annotationName, propertyName)
         } ?: return null
         
         val panelType = inferPanelTypeFromDataType(dataType)
@@ -57,7 +68,7 @@ class PropertyParser(
             name = propertyName,
             typeName = propertyTypeName,
             dataType = dataType,
-            key = key,
+            key = storageKey,
             description = description,
             defaultValue = defaultValue,
             optionItems = optionItems,
@@ -66,7 +77,34 @@ class PropertyParser(
     }
     
     /**
-     * 确定数据类型
+     * Extracts the storage key for the property, applying convention over configuration.
+     * 
+     * If the 'key' parameter in the annotation is empty or blank, the property name
+     * is used as the default key. This follows convention over configuration principles.
+     * 
+     * @param annotationArguments Map of annotation parameter name to value
+     * @param property The property declaration for fallback naming
+     * @return The storage key to use for this property
+     */
+    private fun extractStorageKey(
+        annotationArguments: Map<String, Any?>, 
+        property: KSPropertyDeclaration
+    ): String {
+        val keyArgument = annotationArguments["key"]
+        val annotationKey = keyArgument as? String ?: ""
+        
+        return if (annotationKey.isBlank()) {
+            property.simpleName.asString()  // Convention: use property name as default
+        } else {
+            annotationKey
+        }
+    }
+    
+    /**
+     * Determines the internal data type classification from the annotation name.
+     * @param annotationName The simple name of the property annotation
+     * @param propertyName The property name for error reporting
+     * @return DataType enum value, or null if annotation is unrecognized
      */
     private fun determineDataType(annotationName: String, propertyName: String): DataType? {
         return when (annotationName) {
@@ -85,17 +123,25 @@ class PropertyParser(
     }
     
     /**
-     * 解析选项属性
+     * Parses an option property based on a sealed class structure.
+     *
+     * The default value returned is the optionId of the default option, which
+     * is stored as an integer for efficiency.
+     * 
+     * @param property The property declaration with @OptionProperty
+     * @param propertyKSType The resolved type of the property
+     * @param propertyName The property name for error reporting
+     * @return Pair of (defaultOptionId, optionItemsList) or null if validation fails
      */
     private fun parseOptionProperty(
         property: KSPropertyDeclaration,
         propertyKSType: KSType,
         propertyName: String
     ): Pair<Int, List<OptionItemData>>? {
-        val classDecl = propertyKSType.declaration as? KSClassDeclaration
+        val classDeclaration = propertyKSType.declaration as? KSClassDeclaration
         
-        // 验证是否为sealed class
-        if (classDecl == null || !classDecl.isSealed()) {
+        // Validate that the type is a sealed class
+        if (classDeclaration == null || !classDeclaration.isSealed()) {
             logger.error(
                 ConfigError.mustBeSealedClass(propertyName, propertyKSType.toTypeName().toString()),
                 property
@@ -103,28 +149,44 @@ class PropertyParser(
             return null
         }
         
-        // 验证@Option注解
-        val hasOptionAnnotation = classDecl.annotations.any { 
+        // Validate that the sealed class has @Option annotation
+        val hasOptionAnnotation = classDeclaration.annotations.any { 
             it.annotationType.resolve().declaration.qualifiedName?.asString() == "io.github.mambawow.appconfig.Option"
         }
         if (!hasOptionAnnotation) {
             logger.error(
-                ConfigError.missingOptionAnnotation(propertyName, classDecl.simpleName.asString()),
+                ConfigError.missingOptionAnnotation(propertyName, classDeclaration.simpleName.asString()),
                 property
             )
             return null
         }
         
-        // 解析子类
-        val subclasses = classDecl.getSealedSubclasses().toList()
+        // Parse subclasses as option items
+        val subclasses = classDeclaration.getSealedSubclasses().toList()
         if (subclasses.isEmpty()) {
             logger.error(ConfigError.noSubclasses(propertyName), property)
             return null
         }
         
+        return parseOptionItems(subclasses, propertyName, property)
+    }
+    
+    /**
+     * Parses the subclasses of a sealed class into option items.
+     *
+     * @param subclasses List of sealed class subclasses
+     * @param propertyName Property name for error reporting
+     * @param property Property declaration for error location
+     * @return Pair of (defaultOptionId, optionItemsList) or null if validation fails
+     */
+    private fun parseOptionItems(
+        subclasses: List<KSClassDeclaration>,
+        propertyName: String,
+        property: KSPropertyDeclaration
+    ): Pair<Int, List<OptionItemData>>? {
         val optionItems = mutableListOf<OptionItemData>()
         var defaultOptionId: Int? = null
-        var hasDefault = false
+        var hasDefaultOption = false
         
         for (subclass in subclasses) {
             val optionItemAnnotation = subclass.annotations.find { 
@@ -132,46 +194,30 @@ class PropertyParser(
             }
             
             if (optionItemAnnotation != null) {
-                val annotationArgs = optionItemAnnotation.arguments.associateBy { it.name?.asString() }
-                val optionId = annotationArgs["optionId"]?.value as? Int
-                val isDefault = annotationArgs["isDefault"]?.value as? Boolean ?: false
-                val description = annotationArgs["description"]?.value as? String ?: ""
-
-                if (optionId == null) {
-                    logger.error(
-                        ConfigError.missingOptionId(propertyName, subclass.simpleName.asString()),
-                        property
-                    )
-                    return null
-                }
-
-                if (isDefault) {
-                    if (hasDefault) {
+                val optionItemData = parseOptionItem(optionItemAnnotation, subclass, propertyName, property)
+                    ?: return null
+                
+                optionItems.add(optionItemData)
+                
+                // Track default option
+                if (optionItemData.isDefault) {
+                    if (hasDefaultOption) {
                         logger.error(ConfigError.multipleDefaultOptions(propertyName), property)
                         return null
                     }
-                    hasDefault = true
-                    defaultOptionId = optionId
+                    hasDefaultOption = true
+                    defaultOptionId = optionItemData.optionId
                 }
-
-                optionItems.add(
-                    OptionItemData(
-                        className = subclass.simpleName.asString(),
-                        typeName = subclass.asType(emptyList()).toTypeName(),
-                        optionId = optionId,
-                        description = description,
-                        isDefault = isDefault
-                    )
-                )
             }
         }
         
-        if (!hasDefault) {
+        // Validate that exactly one default option exists
+        if (!hasDefaultOption) {
             logger.error(ConfigError.noDefaultOption(propertyName), property)
             return null
         }
         
-        // 验证optionId唯一性
+        // Validate that all option IDs are unique
         val optionIds = optionItems.map { it.optionId }
         if (optionIds.size != optionIds.toSet().size) {
             logger.error(ConfigError.duplicateOptionIds(propertyName), property)
@@ -182,28 +228,79 @@ class PropertyParser(
     }
     
     /**
-     * 解析基本类型属性
+     * Parses a single @OptionItem annotation into an OptionItemData model.
+     * 
+     * @param annotation The @OptionItem annotation
+     * @param subclass The sealed class subclass with this annotation
+     * @param propertyName Property name for error reporting
+     * @param property Property declaration for error location
+     * @return OptionItemData model or null if parsing fails
+     */
+    private fun parseOptionItem(
+        annotation: com.google.devtools.ksp.symbol.KSAnnotation,
+        subclass: KSClassDeclaration,
+        propertyName: String,
+        property: KSPropertyDeclaration
+    ): OptionItemData? {
+        val annotationArguments = annotation.arguments.associateBy { it.name?.asString() }
+        val optionId = annotationArguments["optionId"]?.value as? Int
+        val isDefault = annotationArguments["isDefault"]?.value as? Boolean ?: false
+        val description = annotationArguments["description"]?.value as? String ?: ""
+
+        if (optionId == null) {
+            logger.error(
+                ConfigError.missingOptionId(propertyName, subclass.simpleName.asString()),
+                property
+            )
+            return null
+        }
+
+        return OptionItemData(
+            className = subclass.simpleName.asString(),
+            typeName = subclass.asType(emptyList()).toTypeName(),
+            optionId = optionId,
+            description = description,
+            isDefault = isDefault
+        )
+    }
+    
+    /**
+     * Parses primitive type properties (non-option properties).
+     * 
+     * Extracts the defaultValue parameter from the annotation and validates
+     * that it's present and non-null.
+     * 
+     * @param annotationArguments Map of annotation parameter name to value
+     * @param annotationName The annotation type name for error reporting
+     * @param propertyName The property name for error reporting
+     * @return Pair of (defaultValue, emptyList) or null if parsing fails
      */
     private fun parsePrimitiveProperty(
-        annotationArgs: Map<String, Any?>,
+        annotationArguments: Map<String, Any?>,
         annotationName: String,
         propertyName: String
     ): Pair<Any, List<OptionItemData>>? {
-        val defaultValueArg = annotationArgs["defaultValue"]
-        if (defaultValueArg == null) {
+        val defaultValueArgument = annotationArguments["defaultValue"]
+        if (defaultValueArgument == null) {
             logger.error(ConfigError.missingDefaultValue(propertyName, annotationName))
             return null
         }
         
-        // 获取实际的默认值
-        val defaultValue = (defaultValueArg as? com.google.devtools.ksp.symbol.KSValueArgument)?.value
-            ?: defaultValueArg
+        // Extract the actual default value from the KSP value argument
+        val defaultValue = (defaultValueArgument as? com.google.devtools.ksp.symbol.KSValueArgument)?.value
+            ?: defaultValueArgument
         
         return defaultValue to emptyList()
     }
 
     /**
-     * 根据DataType推断合适的PanelType
+     * Infers the appropriate UI panel type based on the data type.
+     * 
+     * Maps internal data types to recommended UI panel types for
+     * configuration management interfaces.
+     * 
+     * @param dataType The internal data type classification
+     * @return Recommended PanelType for UI presentation
      */
     private fun inferPanelTypeFromDataType(dataType: DataType): PanelType {
         return when (dataType) {

@@ -5,8 +5,10 @@ import com.squareup.kotlinpoet.ParameterizedTypeName.Companion.parameterizedBy
 import io.github.mambawow.appconfig.model.*
 
 /**
- * 扩展方法生成器
- * 负责生成AppConfig的扩展属性和全局扩展方法
+ * Generator for AppConfig extension methods and properties.
+ * 
+ * Creates extension methods that provide convenient access to configuration instances
+ * and global operations for configuration management across all groups.
  */
 class ExtensionGenerator {
     
@@ -14,7 +16,11 @@ class ExtensionGenerator {
     private val configItemDescriptorClass = ClassName("io.github.mambawow.appconfig", "ConfigItemDescriptor")
     
     /**
-     * 生成AppConfig扩展属性
+     * Generates an AppConfig extension property for accessing configuration instances.
+     * 
+     * @param configData Configuration metadata
+     * @param generatedPackageName Package name for generated classes
+     * @return PropertySpec for the extension property
      */
     fun generateExtensionProperty(configData: ConfigData, generatedPackageName: String): PropertySpec {
         return PropertySpec.builder(
@@ -31,11 +37,16 @@ class ExtensionGenerator {
     }
     
     /**
-     * 生成getAllConfigItems扩展方法
-     *  isSingleTarget = true fun getAllConfigItems(): List<ConfigItemDiscriptor>{}
-     *  else
-     *
-     * 1. singletarget, 比如Android，不需要区分commonMain 和 其他target。
+     * Generates getAllConfigItems extension method.
+     * 
+     * For multiplatform projects:
+     * - commonMain: generates expect declaration
+     * - platform targets: generates actual implementation
+     * 
+     * @param allConfigClasses List of all configuration class metadata
+     * @param isCommonMain Whether generating for commonMain module
+     * @param isMultiplatform Whether this is a multiplatform project
+     * @return FunSpec for getAllConfigItems method
      */
     fun generateGetAllConfigItemsMethod(
         allConfigClasses: List<Pair<String, String>>,
@@ -43,27 +54,16 @@ class ExtensionGenerator {
         isMultiplatform: Boolean
     ): FunSpec {
         if (isCommonMain) {
-            val getAllConfigItemsSpec = FunSpec.builder("getAllConfigItems")
+            return FunSpec.builder("getAllConfigItems")
                 .receiver(appConfigClass)
                 .returns(
                     List::class.asClassName().parameterizedBy(
                         configItemDescriptorClass.parameterizedBy(STAR)
                     )
                 ).addModifiers(KModifier.EXPECT)
-
-            /*if (allConfigClasses.isEmpty()) {
-                getAllConfigItemsSpec.addStatement("return emptyList()")
-            } else {
-                getAllConfigItemsSpec.addStatement(
-                    "return %L",
-                    allConfigClasses.map { (groupName, _) ->
-                        "${groupName.lowercase()}.getConfigItems()"
-                    }.joinToString(" + ")
-                )
-            }*/
-            return getAllConfigItemsSpec.build()
+                .build()
         } else {
-            val getAllConfigItemsSpec = FunSpec.builder("getAllConfigItems")
+            val methodBuilder = FunSpec.builder("getAllConfigItems")
                 .receiver(appConfigClass)
                 .returns(
                     List::class.asClassName().parameterizedBy(
@@ -72,24 +72,30 @@ class ExtensionGenerator {
                 )
 
             if (isMultiplatform) {
-                getAllConfigItemsSpec.addModifiers(KModifier.ACTUAL)
+                methodBuilder.addModifiers(KModifier.ACTUAL)
             }
+            
             if (allConfigClasses.isEmpty()) {
-                getAllConfigItemsSpec.addStatement("return emptyList()")
+                methodBuilder.addStatement("return emptyList()")
             } else {
-                getAllConfigItemsSpec.addStatement(
+                methodBuilder.addStatement(
                     "return %L",
                     allConfigClasses.map { (groupName, _) ->
                         "${groupName.lowercase()}.getConfigItems()"
                     }.joinToString(" + ")
                 )
             }
-            return getAllConfigItemsSpec.build()
+            return methodBuilder.build()
         }
     }
     
     /**
-     * 生成updateAllFromRemote扩展方法
+     * Generates updateAllFromRemote extension method for bulk configuration updates.
+     * 
+     * @param allConfigClasses List of all configuration class metadata
+     * @param isCommonMain Whether generating for commonMain module
+     * @param isMultiplatform Whether this is a multiplatform project
+     * @return FunSpec for updateAllFromRemote method
      */
     fun generateUpdateAllFromRemoteMethod(
         allConfigClasses: List<Pair<String, String>>,
@@ -97,7 +103,7 @@ class ExtensionGenerator {
         isMultiplatform: Boolean
     ): FunSpec {
         if (isCommonMain) {
-            val updateAllFromRemoteSpec = FunSpec.builder("updateAllFromRemote")
+            return FunSpec.builder("updateAllFromRemote")
                 .receiver(appConfigClass)
                 .addModifiers(KModifier.EXPECT, KModifier.SUSPEND)
                 .addParameter(
@@ -107,9 +113,10 @@ class ExtensionGenerator {
                         Map::class.asClassName().parameterizedBy(String::class.asClassName(), ANY)
                     )
                 )
-            return updateAllFromRemoteSpec.build()
+                .build()
         }
-        val updateAllFromRemoteSpec = FunSpec.builder("updateAllFromRemote")
+        
+        val methodBuilder = FunSpec.builder("updateAllFromRemote")
             .receiver(appConfigClass)
             .addParameter(
                 "globalConfigData",
@@ -120,33 +127,38 @@ class ExtensionGenerator {
             )
 
         if (!isMultiplatform) {
-            updateAllFromRemoteSpec.addModifiers(KModifier.SUSPEND)
+            methodBuilder.addModifiers(KModifier.SUSPEND)
         } else {
-            updateAllFromRemoteSpec.addModifiers(KModifier.ACTUAL, KModifier.SUSPEND)
+            methodBuilder.addModifiers(KModifier.ACTUAL, KModifier.SUSPEND)
         }
         
         if (allConfigClasses.isEmpty()) {
-            updateAllFromRemoteSpec.addComment("No config groups to update")
+            methodBuilder.addComment("No config groups to update")
         } else {
-            updateAllFromRemoteSpec.beginControlFlow("globalConfigData.forEach { (groupName, groupData) ->")
+            methodBuilder.beginControlFlow("globalConfigData.forEach { (groupName, groupData) ->")
                 .beginControlFlow("when (groupName)")
             
             allConfigClasses.forEach { (groupName, _) ->
-                updateAllFromRemoteSpec.addStatement(
+                methodBuilder.addStatement(
                     "%S -> %L.updateFromMap(groupData)", 
                     groupName, 
                     groupName.lowercase()
                 )
             }
             
-            updateAllFromRemoteSpec.endControlFlow().endControlFlow()
+            methodBuilder.endControlFlow().endControlFlow()
         }
         
-        return updateAllFromRemoteSpec.build()
+        return methodBuilder.build()
     }
     
     /**
-     * 生成resetAllToDefaults扩展方法
+     * Generates resetAllToDefaults extension method for restoring all configurations.
+     * 
+     * @param allConfigClasses List of all configuration class metadata
+     * @param isCommonMain Whether generating for commonMain module
+     * @param isMultiplatform Whether this is a multiplatform project
+     * @return FunSpec for resetAllToDefaults method
      */
     fun generateResetAllToDefaultsMethod(
         allConfigClasses: List<Pair<String, String>>,
@@ -154,28 +166,29 @@ class ExtensionGenerator {
         isMultiplatform: Boolean
     ): FunSpec {
         if (isCommonMain) {
-            val resetAllToDefaultsSpec = FunSpec.builder("resetAllToDefaults")
+            return FunSpec.builder("resetAllToDefaults")
                 .receiver(appConfigClass)
                 .addModifiers(KModifier.EXPECT, KModifier.SUSPEND)
-            return resetAllToDefaultsSpec.build()
+                .build()
         }
-        val resetAllToDefaultsSpec = FunSpec.builder("resetAllToDefaults")
+        
+        val methodBuilder = FunSpec.builder("resetAllToDefaults")
             .receiver(appConfigClass)
 
         if (!isMultiplatform) {
-            resetAllToDefaultsSpec.addModifiers(KModifier.SUSPEND)
+            methodBuilder.addModifiers(KModifier.SUSPEND)
         } else {
-            resetAllToDefaultsSpec.addModifiers(KModifier.ACTUAL, KModifier.SUSPEND)
+            methodBuilder.addModifiers(KModifier.ACTUAL, KModifier.SUSPEND)
         }
 
         if (allConfigClasses.isNotEmpty()) {
             allConfigClasses.forEach { (groupName, _) ->
-                resetAllToDefaultsSpec.addStatement("%L.resetToDefaults()", groupName.lowercase())
+                methodBuilder.addStatement("%L.resetToDefaults()", groupName.lowercase())
             }
         } else {
-            resetAllToDefaultsSpec.addComment("No config groups to reset")
+            methodBuilder.addComment("No config groups to reset")
         }
         
-        return resetAllToDefaultsSpec.build()
+        return methodBuilder.build()
     }
 } 
