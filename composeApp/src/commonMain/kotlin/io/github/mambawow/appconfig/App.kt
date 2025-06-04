@@ -15,8 +15,6 @@ import androidx.navigation.compose.rememberNavController
 import io.github.mambawow.appconfig.panel.ConfigPanelWithNavigation
 import org.jetbrains.compose.ui.tooling.preview.Preview
 
-
-
 @Composable
 @Preview
 fun App() {
@@ -37,10 +35,7 @@ fun App() {
             }
             composable("test") {
                 ConfigPanelWithNavigation(
-                    configItems = AppConfig.getAllConfigItems(),
-                    onResetAll = suspend {
-                        AppConfig.resetAllToDefaults()
-                    }
+                    configItems = AppConfig.getAllConfigItems()
                 )
             }
         }

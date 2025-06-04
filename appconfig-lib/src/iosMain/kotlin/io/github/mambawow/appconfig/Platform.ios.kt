@@ -1,28 +1,20 @@
 package io.github.mambawow.appconfig
 
-import io.github.mambawow.appconfig.store.DefaultConfigStore
-import kotlinx.cinterop.ExperimentalForeignApi
-import platform.Foundation.NSDocumentDirectory
-import platform.Foundation.NSFileManager
-import platform.Foundation.NSURL
-import platform.Foundation.NSUserDomainMask
+import com.russhwolf.settings.NSUserDefaultsSettings
+import com.russhwolf.settings.Settings
 
-fun AppConfig.initialize() {
-    initWithFactory { groupName ->
-        DefaultConfigStore{
-            "${fileDirectory()}/datastore/$groupName.preferences_pb"
-        }
-    }
+/**
+ * iOS-specific implementation using NSUserDefaults.
+ * 
+ * Creates a Settings instance backed by iOS's NSUserDefaults system,
+ * providing persistent storage that integrates with iOS's native
+ * preference management and follows Apple's configuration guidelines.
+ * 
+ * @param name The preference suite name, used to isolate different configuration groups.
+ * @return A Settings instance backed by NSUserDefaults.
+ */
+actual fun createSettings(name: String): Settings {
+    return NSUserDefaultsSettings.Factory().create(name)
 }
 
-@OptIn(ExperimentalForeignApi::class)
-private fun fileDirectory(): String {
-    val documentDirectory: NSURL? = NSFileManager.defaultManager.URLForDirectory(
-        directory = NSDocumentDirectory,
-        inDomain = NSUserDomainMask,
-        appropriateForURL = null,
-        create = false,
-        error = null,
-    )
-    return requireNotNull(documentDirectory){ "SJY Unable to get document directory"}.path!!
-}
+

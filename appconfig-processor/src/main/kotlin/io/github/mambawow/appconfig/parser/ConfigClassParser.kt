@@ -67,13 +67,15 @@ class ConfigClassParser(
         val groupAnnotation = configClass.annotations.first { 
             it.shortName.asString() == Config::class.simpleName 
         }
-        val groupName = groupAnnotation.arguments.first { 
+        val annotationGroupName = groupAnnotation.arguments.firstOrNull { 
             it.name?.asString() == "groupName" 
-        }.value as String
+        }?.value as? String ?: ""
 
-        if (groupName.isBlank()) {
-            logger.error(ConfigError.blankGroupName(configClass.simpleName.asString()), configClass)
-            return null
+        // 如果groupName为空字符串，使用类名作为默认值
+        val groupName = if (annotationGroupName.isBlank()) {
+            configClass.simpleName.asString()
+        } else {
+            annotationGroupName
         }
 
         // 验证groupName是否为合法的Kotlin标识符
@@ -110,8 +112,8 @@ class ConfigClassParser(
      */
     private fun validateClass(configClass: KSClassDeclaration): Boolean {
         // 检查是否为接口或类
-        if (configClass.classKind != ClassKind.INTERFACE && configClass.classKind != ClassKind.CLASS) {
-            logger.error(ConfigError.ONLY_CLASSES_OR_INTERFACES_CAN_BE_ANNOTATED, configClass)
+        if (configClass.classKind != ClassKind.INTERFACE) {
+            logger.error(ConfigError.ONLY_INTERFACES_CAN_BE_ANNOTATED, configClass)
             return false
         }
 

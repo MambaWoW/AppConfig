@@ -1,12 +1,11 @@
 package io.github.mambawow.appconfig
 
-
 /**
  * @author Frank
- * @created 5/29/25
+ * @created 6/1/25
  * Description:
  */
 
-fun initAppConfig() {
-    AppConfig.initialize()
+fun test() {
+
 }

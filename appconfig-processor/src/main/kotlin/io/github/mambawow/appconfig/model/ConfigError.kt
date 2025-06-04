@@ -4,11 +4,12 @@ package io.github.mambawow.appconfig.model
  * 配置处理错误消息集中管理
  */
 object ConfigError {
-    const val ONLY_CLASSES_OR_INTERFACES_CAN_BE_ANNOTATED = "Only classes or Interfaces can be annotated with @Config"
+    const val ONLY_INTERFACES_CAN_BE_ANNOTATED = "Only Interfaces can be annotated with @Config"
     const val BLANK_GROUP_NAME = "has a blank groupName in @Config. Skipping."
     const val INVALID_GROUP_NAME = "has an invalid groupName in @Config. Group name must be a valid Kotlin identifier. Skipping."
     const val DUPLICATE_GROUP_NAME = "Duplicate groupName found. Group names must be unique. Skipping this class."
     const val DUPLICATE_PROPERTY_KEY = "Duplicate property key found. Property keys must be unique across all config classes."
+    const val DUPLICATE_PROPERTY_KEY_IN_GROUP = "Duplicate property key found within the same configuration group. Property keys must be unique within each group."
     const val MISSING_KEY = "is missing a non-blank 'key'. Skipping."
     const val MISSING_DEFAULT_VALUE = "is missing 'defaultValue' or it is null. Skipping."
     const val UNRECOGNIZED_ANNOTATION = "Internal error: Unrecognized annotation on property"
@@ -30,6 +31,8 @@ object ConfigError {
         "Duplicate groupName \"$groupName\" found in class '$className'. $DUPLICATE_GROUP_NAME"
     fun duplicatePropertyKey(key: String, className: String, existingClassName: String) = 
         "Property key \"$key\" in class '$className' conflicts with the same key in class '$existingClassName'. $DUPLICATE_PROPERTY_KEY"
+    fun duplicatePropertyKeyInGroup(key: String, groupName: String, propertyName: String, existingPropertyName: String) = 
+        "Property key \"$key\" in group '$groupName' is used by both property '$propertyName' and '$existingPropertyName'. $DUPLICATE_PROPERTY_KEY_IN_GROUP"
     fun missingKey(propertyName: String, className: String, annotationName: String) = 
         "Property '$propertyName' in '$className' @$annotationName $MISSING_KEY"
     fun missingDefaultValue(propertyName: String, annotationName: String) = 

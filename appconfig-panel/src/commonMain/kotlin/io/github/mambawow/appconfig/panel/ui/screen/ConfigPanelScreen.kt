@@ -51,7 +51,6 @@ import kotlinx.coroutines.launch
 @Composable
 fun ConfigPanelScreen(
     configItems: List<ConfigItemDescriptor<*>>,
-    onResetAll: (suspend () -> Unit)? = null,
     onNavigateToInput: (title: String, currentValue: String, isNumeric: Boolean, dataType: DataType, key: String) -> Unit = { _, _, _, _, _ -> },
     onNavigateToOption: (title: String, currentOptionId: Int, key: String) -> Unit = { _, _, _ -> }
 ) {
@@ -73,11 +72,7 @@ fun ConfigPanelScreen(
         title = "ConfigPanel",
         onActionClick = {
             coroutineScope.launch {
-                if (onResetAll != null) {
-                    onResetAll()
-                } else {
-                    viewModel.resetAllConfigs()
-                }
+                viewModel.resetAllConfigs()
             }
         }
     ) { paddingValues ->

@@ -13,11 +13,12 @@ plugins {
     alias(libs.plugins.composeHotReload)
     alias(libs.plugins.kotlinxSerialization)
     alias(libs.plugins.kspPlugin)
+    id("io.github.mambawow.appconfig.plugin") version "0.0.0.3"
 }
 
-ksp {
+/*ksp {
     arg("isMultiplatform", "1")
-}
+}*/
 
 kotlin {
     applyDefaultHierarchyTemplate()
@@ -46,9 +47,9 @@ kotlin {
             implementation(libs.androidx.activity.compose)
         }
 
-        val commonMain by getting {
+       /* val commonMain by getting {
             kotlin.srcDir("build/generated/ksp/metadata/commonMain/kotlin")
-        }
+        }*/
         commonMain.dependencies {
             implementation(compose.runtime)
             implementation(compose.foundation)
@@ -65,7 +66,8 @@ kotlin {
         }
     }
 }
-dependencies {
+
+/*dependencies {
     add("kspCommonMainMetadata", project(":appconfig-processor"))
     add("kspAndroid", project(":appconfig-processor"))
     add("kspIosX64", project(":appconfig-processor"))
@@ -77,7 +79,7 @@ tasks.named { name -> name.startsWith("ksp") }.configureEach {
     if (name != "kspCommonMainKotlinMetadata") {
         dependsOn("kspCommonMainKotlinMetadata")
     }
-}
+}*/
 
 
 /*tasks.withType<KotlinCompile>().configureEach {

@@ -1,17 +1,15 @@
 package io.github.mambawow.appconfig.panel
 
-import androidx.compose.animation.slideInHorizontally
-import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.EnterTransition
-import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.ui.graphics.Color
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
@@ -19,23 +17,19 @@ import androidx.navigation.toRoute
 import io.github.mambawow.appconfig.ConfigItemDescriptor
 import io.github.mambawow.appconfig.DataType
 import io.github.mambawow.appconfig.OptionConfigItem
-import io.github.mambawow.appconfig.panel.navigation.ConfigPanel
 import io.github.mambawow.appconfig.panel.navigation.ConfigInput
 import io.github.mambawow.appconfig.panel.navigation.ConfigOption
-import io.github.mambawow.appconfig.panel.navigation.toOrdinal
+import io.github.mambawow.appconfig.panel.navigation.ConfigPanel
 import io.github.mambawow.appconfig.panel.navigation.toDataType
+import io.github.mambawow.appconfig.panel.navigation.toOrdinal
 import io.github.mambawow.appconfig.panel.ui.screen.ConfigInputPage
 import io.github.mambawow.appconfig.panel.ui.screen.ConfigOptionPage
 import io.github.mambawow.appconfig.panel.ui.screen.ConfigPanelScreen
 import io.github.mambawow.appconfig.panel.ui.screen.adapters.convertStringToType
-import io.github.mambawow.appconfig.panel.ui.theme.AppColors.Background
-import io.github.mambawow.appconfig.panel.ui.theme.AppColors.Primary
-import io.github.mambawow.appconfig.panel.ui.theme.AppColors.Surface
-import io.github.mambawow.appconfig.panel.ui.components.ConfigOption as ConfigOptionModel
-import io.github.mambawow.appconfig.panel.viewmodel.ViewModelFactory
 import io.github.mambawow.appconfig.panel.ui.theme.LocalThemeType
-import io.github.mambawow.appconfig.panel.ui.theme.ThemeType
 import io.github.mambawow.appconfig.panel.ui.theme.colorScheme
+import io.github.mambawow.appconfig.panel.viewmodel.ViewModelFactory
+import io.github.mambawow.appconfig.panel.ui.components.ConfigOption as ConfigOptionModel
 
 /**
  * navigation animations
@@ -71,8 +65,7 @@ private fun createNavigationAnimations(
  */
 @Composable
 fun ConfigPanelWithNavigation(
-    configItems: List<ConfigItemDescriptor<*>>,
-    onResetAll: (suspend () -> Unit)? = null
+    configItems: List<ConfigItemDescriptor<*>>
 ) {
     val navController = rememberNavController()
     val viewModel = ViewModelFactory.createConfigPanelViewModel(configItems)
@@ -102,7 +95,6 @@ fun ConfigPanelWithNavigation(
                 composable<ConfigPanel> {
                     ConfigPanelScreen(
                         configItems = configItems,
-                        onResetAll = onResetAll,
                         onNavigateToInput = { title: String, currentValue: String, isNumeric: Boolean, dataType: DataType, key: String ->
                             navController.navigate(
                                 ConfigInput(

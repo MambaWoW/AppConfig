@@ -42,10 +42,7 @@ data class PropertyData(
     val defaultValue: Any?,
     val optionItems: List<OptionItemData> = emptyList(),
     val panelType: PanelType
-) {
-    val getterName = "get${name.replaceFirstChar { it.titlecase() }}"
-    val updaterName = "update${name.replaceFirstChar { it.titlecase() }}"
-}
+)
 
 /**
  * 选项项数据模型

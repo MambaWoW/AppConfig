@@ -67,19 +67,6 @@ class ConfigPanelViewModel(
     }
     
     /**
-     * Reset a specific configuration to its default value
-     */
-    fun resetConfig(key: String) {
-        viewModelScope.launch {
-            try {
-                repository.resetConfigToDefault(key)
-            } catch (e: Exception) {
-                _error.value = "Failed to reset config: ${e.message}"
-            }
-        }
-    }
-    
-    /**
      * Reset all configurations to their default values
      */
     fun resetAllConfigs() {
@@ -90,20 +77,6 @@ class ConfigPanelViewModel(
                 _error.value = "Failed to reset all configs: ${e.message}"
             }
         }
-    }
-    
-    /**
-     * Get current value for a specific configuration key
-     */
-    fun getConfigValue(key: String): Any? {
-        return _configValues.value[key]
-    }
-    
-    /**
-     * Clear error state
-     */
-    fun clearError() {
-        _error.value = null
     }
     
     /**

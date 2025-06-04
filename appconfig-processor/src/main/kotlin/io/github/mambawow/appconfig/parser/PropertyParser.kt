@@ -28,21 +28,15 @@ class PropertyParser(
         val annotationName = propertyAnnotation.shortName.asString()
         val annotationArgs = propertyAnnotation.arguments.associateBy { it.name!!.asString() }
         
-        // 验证key参数
+        // 获取key参数，如果为空字符串则使用属性名作为默认值
         val keyArg = annotationArgs["key"]
-        if (keyArg == null || (keyArg.value as? String).isNullOrBlank()) {
-            logger.error(
-                ConfigError.missingKey(
-                    property.simpleName.asString(),
-                    containingClass.simpleName.asString(),
-                    annotationName
-                ),
-                property
-            )
-            return null
+        val annotationKey = keyArg?.value as? String ?: ""
+        val key = if (annotationKey.isBlank()) {
+            property.simpleName.asString()
+        } else {
+            annotationKey
         }
         
-        val key = keyArg.value as String
         val description = annotationArgs["description"]?.value as? String ?: ""
         val propertyName = property.simpleName.asString()
         val propertyKSType = property.type.resolve()

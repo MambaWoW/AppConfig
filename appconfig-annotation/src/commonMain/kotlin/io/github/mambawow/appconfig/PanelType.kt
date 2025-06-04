@@ -1,16 +1,37 @@
 package io.github.mambawow.appconfig
 
 /**
- * @author Frank
- * @created 5/25/25
+ * UI panel types for rendering configuration properties in admin interfaces.
+ * 
+ * Determines how properties are displayed and interacted with in generated
+ * configuration panels. Automatically selected based on data type:
+ * - BOOLEAN → [SWITCH]
+ * - STRING → [TEXT_INPUT] 
+ * - Numeric types → [NUMBER_INPUT]
+ * - OPTION → [TOGGLE]
  */
 enum class PanelType {
-    /** Typically for Boolean types, rendered as a toggle switch. */
+    /**
+     * Toggle switch for boolean values.
+     * Rendered as iOS-style switch or material toggle.
+     */
     SWITCH,
 
+    /**
+     * Multi-option selector for enumerated choices.
+     * Rendered as segmented control or radio button group.
+     */
     TOGGLE,
-    /** For general single-line string input. */
+    
+    /**
+     * Single-line text input for string values.
+     * Supports validation and specialized keyboards.
+     */
     TEXT_INPUT,
-    /** For numeric types (Int, Long, Float, Double), often with validation or specific keyboards. */
+    
+    /**
+     * Numeric input with validation and increment/decrement controls.
+     * Optimized for numeric entry with appropriate keyboards.
+     */
     NUMBER_INPUT
 }

@@ -3,6 +3,7 @@ enableFeaturePreview("TYPESAFE_PROJECT_ACCESSORS")
 
 pluginManagement {
     repositories {
+        mavenLocal()
         google {
             mavenContent {
                 includeGroupAndSubgroups("androidx")
@@ -38,3 +39,4 @@ include(":appconfig-processor")
 include(":appconfig-lib")
 include(":appconfig-panel")
 include(":appconfig-gradle-plugin")
+include(":SingleAndroidTarget")

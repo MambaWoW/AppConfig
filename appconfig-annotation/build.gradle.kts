@@ -1,11 +1,10 @@
+import com.vanniktech.maven.publish.SonatypeHost
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
     alias(libs.plugins.kotlinMultiplatform)
     alias(libs.plugins.mavenPublish)
     alias(libs.plugins.androidLibrary)
-    id("maven-publish")
-    id("signing")
 }
 
 kotlin {
@@ -32,25 +31,13 @@ kotlin {
 
 android {
     compileSdk = libs.versions.android.compileSdk.get().toInt()
-    namespace = "io.github.mambawow.appconfig"
+    namespace = "io.github.mambawow.appconfig.annotation"
 
-    packaging {
-        resources {
-            excludes += "/META-INF/{AL2.0,LGPL2.1}"
-        }
-    }
-    buildTypes {
-        getByName("release") {
-            isMinifyEnabled = false
-        }
-    }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
     }
 }
-
-val enableSigning = project.hasProperty("signingInMemoryKey")
 
 mavenPublishing {
     coordinates(
@@ -58,66 +45,30 @@ mavenPublishing {
         "appconfig-annotation",
         libs.versions.version.get(),
     )
-    publishToMavenCentral()
-    if (enableSigning) {
-        signAllPublications()
-    }
-}
-
-publishing {
-    publications {
-        create<MavenPublication>("default") {
-            artifact(tasks["sourcesJar"])
-            //  artifact(tasks["javadocJar"])
-
-            pom {
-                name.set(project.name)
-                issueManagement {
-                    system.set("GitHub")
-                    url.set("https://github.com/MambaWoW/AppConfig/issues")
-                }
-                description.set("AppConfig Annotations")
-                url.set("https://github.com/MambaWoW/AppConfig")
-
-                licenses {
-                    license {
-                        name.set("MIT License")
-                        url.set("https://github.com/MambaWoW/AppConfig/blob/main/LICENSE")
-                    }
-                }
-                scm {
-                    url.set("https://github.com/MambaWoW/AppConfig")
-                    connection.set("scm:git:git://github.com/MambaWoW/AppConfig.git")
-                }
-                developers {
-                    developer {
-                        name.set("Frank Shao")
-                        url.set("https://github.com/MambaWoW")
-                    }
-                }
+    signAllPublications()
+    publishToMavenCentral(SonatypeHost.CENTRAL_PORTAL)
+    pom {
+        name.set(project.name)
+        inceptionYear.set("2025")
+        url.set("https://github.com/MambaWoW/AppConfig")
+        licenses {
+            license {
+                name.set("MIT License")
+                url.set("https://opensource.org/licenses/MIT")
+                distribution.set("https://opensource.org/licenses/MIT")
             }
         }
-    }
-
-    repositories {
-        if (
-            hasProperty("sonatypeUsername") &&
-            hasProperty("sonatypePassword") &&
-            hasProperty("sonatypeSnapshotUrl") &&
-            hasProperty("sonatypeReleaseUrl")
-        ) {
-            maven {
-                val url =
-                    when {
-                        "SNAPSHOT" in version.toString() -> property("sonatypeSnapshotUrl")
-                        else -> property("sonatypeReleaseUrl")
-                    } as String
-                setUrl(url)
-                credentials {
-                    username = property("sonatypeUsername") as String
-                    password = property("sonatypePassword") as String
-                }
+        developers {
+            developer {
+                id.set("MambaWoW")
+                name.set("MambaWoW")
+                url.set("https://github.com/MambaWoW/")
             }
+        }
+        scm {
+            url.set("https://github.com/MambaWoW/AppConfig/")
+            connection.set("scm:git:git://github.com/MambaWoW/AppConfig.git")
+            developerConnection.set("scm:git:ssh://git@github.com/MambaWoW/AppConfig.git")
         }
     }
 }
