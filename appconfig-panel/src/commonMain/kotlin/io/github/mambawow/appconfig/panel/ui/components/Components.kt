@@ -4,7 +4,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -34,107 +33,201 @@ import io.github.mambawow.appconfig.panel.ui.theme.LocalThemeType
 import io.github.mambawow.appconfig.panel.ui.theme.ThemeType
 
 /**
- * @author Frank
- * @created 5/29/25
+ * Common UI components for the configuration panel
+ * 
+ * This file contains reusable UI components that adapt their appearance
+ * based on the current platform theme (Material vs Cupertino).
+ * 
+ * Components include:
+ * - ActionButton: Primary action buttons with platform-specific styling
+ * - NavigationButton: Back navigation with adaptive layout
+ * - Dividers: Visual separators for content organization
+ * 
+ * @author Frank Shao
+ * @created 2025/01/29
+ */
+
+/**
+ * Platform-adaptive action button component
+ * 
+ * This button automatically adapts its appearance and interaction behavior
+ * based on the current theme:
+ * 
+ * Material Design:
+ * - Uses TextButton with Material ripple effects
+ * - Standard Material button typography and spacing
+ * - Material interaction states and animations
+ * 
+ * Cupertino (iOS):
+ * - Custom implementation with iOS-style interactions
+ * - Opacity-based press feedback (iOS standard)
+ * - System blue color for action text
+ * - No background or border (iOS button pattern)
+ * 
+ * @param actionText The text to display on the button
+ * @param onClick Callback function when the button is pressed
  */
 @Composable
 fun ActionButton(
     actionText: String,
     onClick: () -> Unit
 ) {
-    if (LocalThemeType.current == ThemeType.Material) {
-        TextButton(onClick = onClick) {
-            Text(
-                text = actionText,
-                style = AppTextStyles.BodySmall.copy(
-                    fontSize = 16.sp
+    when (LocalThemeType.current) {
+        ThemeType.Material -> {
+            // Material Design implementation
+            TextButton(onClick = onClick) {
+                Text(
+                    text = actionText,
+                    style = AppTextStyles.BodySmall.copy(fontSize = 16.sp)
                 )
-            )
+            }
         }
-    } else {
-        val interactionSource: MutableInteractionSource = remember { MutableInteractionSource() }
-        val pressed by interactionSource.collectIsPressedAsState()
-        Row(
-            Modifier
-                .graphicsLayer {
-                    alpha = if (pressed) 0.33f else 1f
-                }.clickable(
-                    interactionSource = interactionSource,
-                    indication = null,
-                    onClick = onClick
-                ).padding(end = 15.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                text = actionText,
-                style = AppTextStyles.BodyNormal.copy(fontSize = 16.sp, color = SystemBlue)
-            )
+        
+        ThemeType.Cupertino -> {
+            // iOS-style implementation with custom press feedback
+            val interactionSource = remember { MutableInteractionSource() }
+            val isPressed by interactionSource.collectIsPressedAsState()
+            
+            Row(
+                modifier = Modifier
+                    .graphicsLayer {
+                        // iOS-style opacity feedback on press
+                        alpha = if (isPressed) 0.33f else 1f
+                    }
+                    .clickable(
+                        interactionSource = interactionSource,
+                        indication = null, // No ripple for iOS style
+                        onClick = onClick
+                    )
+                    .padding(end = 15.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = actionText,
+                    style = AppTextStyles.BodyNormal.copy(
+                        fontSize = 16.sp, 
+                        color = SystemBlue
+                    )
+                )
+            }
         }
     }
 }
 
+/**
+ * Platform-adaptive navigation button component
+ * 
+ * This component provides back navigation functionality with
+ * platform-specific visual design and interaction patterns:
+ * 
+ * Material Design:
+ * - IconButton with back arrow icon
+ * - Material ripple interaction feedback
+ * - Standard Material icon sizing and spacing
+ * 
+ * Cupertino (iOS):
+ * - Custom layout with chevron and "Back" text
+ * - iOS-style opacity feedback on press
+ * - System blue color scheme
+ * - Text + icon combination (iOS navigation pattern)
+ * 
+ * @param onClick Callback function when the navigation button is pressed
+ */
 @Composable
 fun NavigationButton(
     onClick: () -> Unit
 ) {
-    if (LocalThemeType.current == ThemeType.Material) {
-        IconButton(onClick = onClick) {
-            Icon(
-                modifier = Modifier.padding(horizontal = 16.dp).size(16.dp),
-                imageVector = ChevronBackward,
-                contentDescription = "Back"
-            )
+    when (LocalThemeType.current) {
+        ThemeType.Material -> {
+            // Material Design implementation
+            IconButton(onClick = onClick) {
+                Icon(
+                    modifier = Modifier
+                        .padding(horizontal = 16.dp)
+                        .size(16.dp),
+                    imageVector = ChevronBackward,
+                    contentDescription = "Navigate back"
+                )
+            }
         }
-    } else {
-        val interactionSource: MutableInteractionSource = remember { MutableInteractionSource() }
-        val pressed by interactionSource.collectIsPressedAsState()
-        Row(
-            Modifier
-                .graphicsLayer {
-                    alpha = if (pressed) 0.33f else 1f
-                }.clickable(
-                    interactionSource = interactionSource,
-                    indication = null,
-                    onClick = onClick
-                ),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Icon(
-                modifier = Modifier.padding(start = 16.dp, end = 4.dp).size(15.dp),
-                imageVector = ChevronBackward,
-                contentDescription = "Back",
-                tint = SystemBlue
-            )
+        
+        ThemeType.Cupertino -> {
+            // iOS-style implementation with text + icon
+            val interactionSource = remember { MutableInteractionSource() }
+            val isPressed by interactionSource.collectIsPressedAsState()
+            
+            Row(
+                modifier = Modifier
+                    .graphicsLayer {
+                        // iOS-style opacity feedback on press
+                        alpha = if (isPressed) 0.33f else 1f
+                    }
+                    .clickable(
+                        interactionSource = interactionSource,
+                        indication = null, // No ripple for iOS style
+                        onClick = onClick
+                    ),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    modifier = Modifier
+                        .padding(start = 16.dp, end = 4.dp)
+                        .size(15.dp),
+                    imageVector = ChevronBackward,
+                    contentDescription = "Navigate back",
+                    tint = SystemBlue
+                )
 
-            Text(
-                text = "Back",
-                style = AppTextStyles.BodyNormal.copy(fontSize = 17.sp, color = SystemBlue)
-            )
+                Text(
+                    text = "Back",
+                    style = AppTextStyles.BodyNormal.copy(
+                        fontSize = 17.sp, 
+                        color = SystemBlue
+                    )
+                )
+            }
         }
     }
 }
 
-
+/**
+ * Horizontal divider component for content separation
+ * 
+ * Creates a thin horizontal line used to visually separate
+ * content sections, list items, or groups of related elements.
+ * 
+ * @param modifier Modifier for customizing the divider's layout
+ * @param color Color of the divider line (defaults to theme divider color)
+ */
 @Composable
 fun HorizontalDivider(
     modifier: Modifier = Modifier,
     color: Color = Divider
 ) {
     Spacer(
-        modifier
+        modifier = modifier
             .fillMaxWidth()
             .height(0.5.dp)
             .background(color = color)
     )
 }
 
+/**
+ * Vertical divider component for content separation
+ * 
+ * Creates a thin vertical line used to visually separate
+ * content sections in horizontal layouts or side-by-side elements.
+ * 
+ * @param modifier Modifier for customizing the divider's layout
+ * @param color Color of the divider line (defaults to theme divider color)
+ */
 @Composable
 fun VerticalDivider(
     modifier: Modifier = Modifier,
     color: Color = Divider
 ) {
     Spacer(
-        modifier
+        modifier = modifier
             .fillMaxHeight()
             .width(0.5.dp)
             .background(color = color)
