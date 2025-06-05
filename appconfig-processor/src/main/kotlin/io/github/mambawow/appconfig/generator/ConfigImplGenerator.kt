@@ -45,7 +45,7 @@ class ConfigImplGenerator {
         implementationBuilder.addProperty(
             PropertySpec.builder("store", configStoreClass)
                 .addModifiers(KModifier.PRIVATE)
-                .initializer("AppConfig.createConfigStore(%S)", configData.groupName)
+                .initializer("AppConfig.getConfigStore(%S)", configData.groupName)
                 .build()
         )
         

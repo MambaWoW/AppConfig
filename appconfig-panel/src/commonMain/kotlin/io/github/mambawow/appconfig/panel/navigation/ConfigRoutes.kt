@@ -9,7 +9,7 @@ import kotlinx.serialization.Serializable
  */
 
 @Serializable
-object ConfigPanel
+internal object ConfigPanel
 
 @Serializable
 data class ConfigInput(
