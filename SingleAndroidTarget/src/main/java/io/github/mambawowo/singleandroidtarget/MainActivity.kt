@@ -10,6 +10,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import io.github.mambawow.appconfig.AppConfig
 import io.github.mambawow.appconfig.BooleanProperty
 import io.github.mambawow.appconfig.Config
 import io.github.mambawow.appconfig.FloatProperty
@@ -18,6 +19,8 @@ import io.github.mambawow.appconfig.Option
 import io.github.mambawow.appconfig.OptionItem
 import io.github.mambawow.appconfig.OptionProperty
 import io.github.mambawow.appconfig.StringProperty
+import io.github.mambawow.appconfig.getAllConfigItems
+import io.github.mambawow.appconfig.panel.ConfigPanel
 import io.github.mambawowo.singleandroidtarget.ui.theme.MyApplicationTheme
 
 class MainActivity : ComponentActivity() {
@@ -31,6 +34,12 @@ class MainActivity : ComponentActivity() {
                         name = "Android",
                         modifier = Modifier.padding(innerPadding)
                     )
+
+                    if(BuildConfig.DEBUG) {
+                        ConfigPanel(
+                            configItems = AppConfig.getAllConfigItems()
+                        )
+                    }
                 }
             }
         }
