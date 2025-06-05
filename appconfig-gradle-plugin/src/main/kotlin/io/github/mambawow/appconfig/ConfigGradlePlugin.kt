@@ -17,14 +17,14 @@ class ConfigGradlePlugin : Plugin<Project> {
         const val GROUP_NAME = "io.github.mambawow.appconfig"
         const val ARTIFACT_NAME = "compiler-plugin"
         const val COMPILER_PLUGIN_ID = "io.github.mambawow.AppConfigPlugin"
-        const val CONFIG_KSP_PLUGIN_VERSION = "0.1.0"
+        const val CONFIG_KSP_PLUGIN_VERSION = "0.0.3-alpha01"
         const val MIN_KSP_VERSION = "1.0.28"
         const val KSP_PLUGIN_ERROR_MESSAGE =
             "KSP plugin not applied, please add it to your build script."
         const val KSP_ID = "com.google.devtools.ksp"
         const val KSP_IS_MULTIPLATFORM = "AppConfig_isMultiplatform"
         const val CONFIG_KSP_DEPENDENCY =
-            "$GROUP_NAME:app-config-processor:$CONFIG_KSP_PLUGIN_VERSION"
+            "$GROUP_NAME:appconfig-processor:$CONFIG_KSP_PLUGIN_VERSION"
     }
 
     override fun apply(project: Project) {
@@ -72,7 +72,7 @@ class ConfigGradlePlugin : Plugin<Project> {
             when (val kotlinExtension = kotlinExtension) {
                 is KotlinSingleTargetExtension<*> -> {
                     argMethod.invoke(kspExtension, KSP_IS_MULTIPLATFORM, "0")
-                    dependencies.add("ksp", project(":appconfig-processor"))
+                    dependencies.add("ksp", CONFIG_KSP_DEPENDENCY)
                 }
 
                 is KotlinMultiplatformExtension -> {
@@ -81,7 +81,7 @@ class ConfigGradlePlugin : Plugin<Project> {
                         if (platformType.name == "common") {
                             dependencies.add(
                                 "kspCommonMainMetadata",
-                                project(":appconfig-processor")
+                                CONFIG_KSP_DEPENDENCY
                             )
                             return@configureEach
                         }
@@ -95,13 +95,13 @@ class ConfigGradlePlugin : Plugin<Project> {
                             }
                         dependencies.add(
                             "ksp$capitalizedTargetName",
-                            project(":appconfig-processor")
+                            CONFIG_KSP_DEPENDENCY
                         )
 
                         if (this.compilations.any { it.name == "test" }) {
                             dependencies.add(
                                 "ksp${capitalizedTargetName}Test",
-                                project(":appconfig-processor")
+                                CONFIG_KSP_DEPENDENCY
                             )
                         }
                     }
