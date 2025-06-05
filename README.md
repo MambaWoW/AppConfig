@@ -1,9 +1,9 @@
 # AppConfig 🚀
 
-[![Maven Central](https://img.shields.io/maven-central/v/io.github.mambawow/appconfig-lib.svg?label=Maven%20Central)](https://search.maven.org/search?q=g:%22io.github.mambawow%22%20AND%20a:%22appconfig-lib%22)
+[![Maven Central](https://img.shields.io/maven-central/v/io.github.mambawow/appconfig-lib.svg?label=Maven%20Central)]
 [![Kotlin](https://img.shields.io/badge/kotlin-2.1.21-blue.svg?logo=kotlin)](http://kotlinlang.org)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Platform](https://img.shields.io/badge/platform-android%20%7C%20ios%20%7C%20desktop%20%7C%20web-lightgrey.svg)](https://kotlinlang.org/docs/multiplatform.html)
+[![Platform](https://img.shields.io/badge/platform-android%20%7C%20ios-lightgrey.svg)](https://kotlinlang.org/docs/multiplatform.html)
 
 A powerful, type-safe configuration management library for Kotlin Multiplatform that transforms how you handle app settings with zero boilerplate code.
 
@@ -24,16 +24,15 @@ A powerful, type-safe configuration management library for Kotlin Multiplatform 
 ```kotlin
 // build.gradle.kts (Module level)
 plugins {
-    id("com.google.devtools.ksp") version "2.1.21-2.0.1"
+    id("com.google.devtools.ksp") version "CURRENT_KSP_VERSION"
+    id("io.github.mambawow.appconfig") version "0.0.3-alpha02"
 }
 
 dependencies {
-    implementation("io.github.mambawow:appconfig-lib:0.0.2-SNAPSHOT")
-    implementation("io.github.mambawow:appconfig-annotation:0.0.2-SNAPSHOT")
-    ksp("io.github.mambawow:appconfig-processor:0.0.2-SNAPSHOT")
+    implementation("io.github.mambawow.appconfig:appconfig-lib:0.0.3-alpha01")
     
     // Optional: Admin UI panel (Compose Multiplatform)
-    implementation("io.github.mambawow:appconfig-panel:0.0.2-SNAPSHOT")
+    implementation("io.github.mambawow.appconfig:appconfig-panel:0.0.3-alpha01")
 }
 ```
 
@@ -62,24 +61,6 @@ interface UserSettings {
         description = "Network timeout in seconds"
     )
     var timeoutSeconds: Int
-    
-    @OptionProperty(
-        key = "log_level",
-        description = "Application log level"
-    )
-    var logLevel: LogLevel
-}
-
-@Option
-sealed class LogLevel {
-    @OptionItem(optionId = 0, description = "Debug", isDefault = true)
-    object Debug : LogLevel()
-    
-    @OptionItem(optionId = 1, description = "Info")
-    object Info : LogLevel()
-    
-    @OptionItem(optionId = 2, description = "Error")
-    object Error : LogLevel()
 }
 ```
 
@@ -93,12 +74,10 @@ val settings = AppConfig.usersettings
 println("Dark mode: ${settings.isDarkModeEnabled}")
 println("API: ${settings.apiEndpoint}")
 println("Timeout: ${settings.timeoutSeconds}")
-println("Log level: ${settings.logLevel}")
 
 // Update values (automatically persisted)
 settings.isDarkModeEnabled = true
 settings.timeoutSeconds = 60
-settings.logLevel = LogLevel.Error
 ```
 
 ### 4. Add Admin Panel (Optional)
