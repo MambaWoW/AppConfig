@@ -3,7 +3,7 @@ plugins {
     alias(libs.plugins.kotlinAndroid)
     alias(libs.plugins.composeCompiler)
     alias(libs.plugins.kspPlugin)
-    id("io.github.mambawow.appconfig.plugin") version "0.0.0.2"
+    id("io.github.mambawow.appconfig.plugin") version "0.0.0.3"
 }
 
 android {
@@ -30,6 +30,9 @@ android {
     kotlinOptions {
         jvmTarget = "11"
     }
+    buildFeatures {
+        buildConfig = true
+    }
 }
 
 dependencies {
@@ -43,7 +46,6 @@ dependencies {
     implementation(libs.androidx.ui.graphics)
     implementation(libs.androidx.material3)
     ksp(project(":appconfig-processor"))
-    implementation(projects.appconfigPanel)
+    debugImplementation(projects.appconfigPanel)
     implementation(projects.appconfigLib)
-    implementation(projects.appconfigAnnotation)
 }

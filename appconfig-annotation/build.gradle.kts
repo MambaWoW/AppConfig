@@ -49,6 +49,7 @@ mavenPublishing {
     publishToMavenCentral(SonatypeHost.CENTRAL_PORTAL)
     pom {
         name.set(project.name)
+        description.set("A powerful, type-safe configuration management library for Kotlin Multiplatform that transforms how you handle app settings with zero boilerplate code.")
         inceptionYear.set("2025")
         url.set("https://github.com/MambaWoW/AppConfig")
         licenses {

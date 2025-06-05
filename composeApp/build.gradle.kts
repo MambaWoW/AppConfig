@@ -1,9 +1,15 @@
-import org.jetbrains.compose.desktop.application.dsl.TargetFormat
-import org.jetbrains.kotlin.gradle.ExperimentalKotlinGradlePluginApi
-import org.jetbrains.kotlin.gradle.ExperimentalWasmDsl
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
-import org.jetbrains.kotlin.gradle.targets.js.webpack.KotlinWebpackConfig
-import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
+
+buildscript {
+    repositories {
+        mavenCentral()
+    }
+    dependencies {
+        classpath("io.github.mambawow:appconfig-gradle-plugin:0.0.3-alpha01")
+    }
+}
+
+apply(plugin = "io.github.mambawow.appconfig")
 
 plugins {
     alias(libs.plugins.kotlinMultiplatform)
@@ -13,12 +19,8 @@ plugins {
     alias(libs.plugins.composeHotReload)
     alias(libs.plugins.kotlinxSerialization)
     alias(libs.plugins.kspPlugin)
-    id("io.github.mambawow.appconfig.plugin") version "0.0.0.3"
+//    id("io.github.mambawow.appconfig.plugin") version "0.0.0.3"
 }
-
-/*ksp {
-    arg("isMultiplatform", "1")
-}*/
 
 kotlin {
     applyDefaultHierarchyTemplate()
@@ -46,10 +48,6 @@ kotlin {
             implementation(compose.preview)
             implementation(libs.androidx.activity.compose)
         }
-
-       /* val commonMain by getting {
-            kotlin.srcDir("build/generated/ksp/metadata/commonMain/kotlin")
-        }*/
         commonMain.dependencies {
             implementation(compose.runtime)
             implementation(compose.foundation)
@@ -60,33 +58,23 @@ kotlin {
             implementation(libs.androidx.lifecycle.viewmodel)
             implementation(libs.androidx.lifecycle.runtimeCompose)
             implementation(libs.androidx.activity.compose.navigation)
-            implementation(projects.appconfigPanel)
+//            implementation(projects.appconfigPanel)
+            implementation(libs.appconfig.panel)
+            implementation(libs.appconfig.lib)
+        }
+        
+        commonTest.dependencies {
+            implementation(libs.kotlin.test)
+            implementation(libs.multiplatform.settings)
+            implementation(libs.multiplatform.settings.test)
             implementation(projects.appconfigLib)
-            implementation(projects.appconfigAnnotation)
+        }
+        
+        androidUnitTest.dependencies {
+            implementation(libs.kotlin.testJunit)
         }
     }
 }
-
-/*dependencies {
-    add("kspCommonMainMetadata", project(":appconfig-processor"))
-    add("kspAndroid", project(":appconfig-processor"))
-    add("kspIosX64", project(":appconfig-processor"))
-    add("kspIosArm64", project(":appconfig-processor"))
-    add("kspIosSimulatorArm64", project(":appconfig-processor"))
-}
-
-tasks.named { name -> name.startsWith("ksp") }.configureEach {
-    if (name != "kspCommonMainKotlinMetadata") {
-        dependsOn("kspCommonMainKotlinMetadata")
-    }
-}*/
-
-
-/*tasks.withType<KotlinCompile>().configureEach {
-    if (name != "kspCommonMainKotlinMetadata") {
-        dependsOn("kspCommonMainKotlinMetadata")
-    }
-}*/
 
 android {
     namespace = "io.github.mambawow.appconfig"
@@ -98,6 +86,9 @@ android {
         targetSdk = libs.versions.android.targetSdk.get().toInt()
         versionCode = 1
         versionName = "1.0"
+        
+        // Add test instrumentation runner for Android tests
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
     packaging {
         resources {
