@@ -1,16 +1,5 @@
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
-buildscript {
-    repositories {
-        mavenCentral()
-    }
-    dependencies {
-        classpath("io.github.mambawow:appconfig-gradle-plugin:0.0.3-alpha01")
-    }
-}
-
-apply(plugin = "io.github.mambawow.appconfig")
-
 plugins {
     alias(libs.plugins.kotlinMultiplatform)
     alias(libs.plugins.androidApplication)
@@ -19,7 +8,7 @@ plugins {
     alias(libs.plugins.composeHotReload)
     alias(libs.plugins.kotlinxSerialization)
     alias(libs.plugins.kspPlugin)
-//    id("io.github.mambawow.appconfig.plugin") version "0.0.0.3"
+    id("io.github.mambawow.appconfig") version "0.0.3-alpha03"
 }
 
 kotlin {
@@ -58,9 +47,10 @@ kotlin {
             implementation(libs.androidx.lifecycle.viewmodel)
             implementation(libs.androidx.lifecycle.runtimeCompose)
             implementation(libs.androidx.activity.compose.navigation)
-//            implementation(projects.appconfigPanel)
             implementation(libs.appconfig.panel)
             implementation(libs.appconfig.lib)
+//            implementation(projects.appconfigPanel)
+//            implementation(projects.appconfigLib)
         }
         
         commonTest.dependencies {

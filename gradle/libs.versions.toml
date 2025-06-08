@@ -35,7 +35,7 @@ material = "1.12.0"
 composeBom = "2024.09.00"
 
 groupId = "io.github.mambawow.appconfig"
-version = "0.0.3-alpha01"
+version = "0.0.3-alpha03"
 
 [libraries]
 atomicfu = { module = "org.jetbrains.kotlinx:atomicfu", version.ref = "atomicfu" }
@@ -77,9 +77,9 @@ multiplatform-settings = { module = "com.russhwolf:multiplatform-settings", vers
 multiplatform-settings-test = { module = "com.russhwolf:multiplatform-settings-test", version.ref = "multiplatformSettings" }
 material = { group = "com.google.android.material", name = "material", version.ref = "material" }
 
-appconfig-annotation = { module = "io.github.mambawow:appconfig-annotation", version.ref = "version" }
-appconfig-lib = { module = "io.github.mambawow:appconfig-lib", version.ref = "version" }
-appconfig-panel = { module = "io.github.mambawow:appconfig-panel", version.ref = "version" }
+appconfig-annotation = { module = "io.github.mambawow.appconfig:appconfig-annotation", version.ref = "version" }
+appconfig-lib = { module = "io.github.mambawow.appconfig:appconfig-lib", version.ref = "version" }
+appconfig-panel = { module = "io.github.mambawow.appconfig:appconfig-panel", version.ref = "version" }
 
 
 [plugins]

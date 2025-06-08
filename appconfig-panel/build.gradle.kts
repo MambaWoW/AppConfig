@@ -40,8 +40,8 @@ kotlin {
         val commonMain by getting {
             dependencies {
                 implementation(libs.kotlinx.coroutines.core)
-//                implementation(projects.appconfigLib)
                 implementation(libs.appconfig.lib)
+//                implementation(projects.appconfigLib)
                 implementation(compose.runtime)
                 implementation(compose.foundation)
                 implementation(compose.material3)

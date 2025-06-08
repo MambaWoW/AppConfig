@@ -31,7 +31,7 @@ dependencies {
 }
 
 
-val pluginVersion = "0.0.3-alpha02"
+val pluginVersion = libs.versions.version.get()
 group = libs.versions.groupId.get()
 version = pluginVersion
 

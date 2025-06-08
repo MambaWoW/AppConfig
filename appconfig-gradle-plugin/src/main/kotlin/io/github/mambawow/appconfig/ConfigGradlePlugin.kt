@@ -17,7 +17,7 @@ class ConfigGradlePlugin : Plugin<Project> {
         const val GROUP_NAME = "io.github.mambawow.appconfig"
         const val ARTIFACT_NAME = "compiler-plugin"
         const val COMPILER_PLUGIN_ID = "io.github.mambawow.AppConfigPlugin"
-        const val CONFIG_KSP_PLUGIN_VERSION = "0.0.3-alpha01"
+        const val CONFIG_KSP_PLUGIN_VERSION = "0.0.3-alpha03"
         const val MIN_KSP_VERSION = "1.0.28"
         const val KSP_PLUGIN_ERROR_MESSAGE =
             "KSP plugin not applied, please add it to your build script."

@@ -6,7 +6,8 @@ plugins {
 }
 
 dependencies {
-    implementation(projects.appconfigAnnotation)
+//    implementation(projects.appconfigAnnotation)
+    implementation(libs.appconfig.annotation)
     implementation(libs.kspApi)
     implementation(libs.kotlinPoet)
     implementation(libs.kotlinPoet.ksp)

@@ -3,7 +3,7 @@ plugins {
     alias(libs.plugins.kotlinAndroid)
     alias(libs.plugins.composeCompiler)
     alias(libs.plugins.kspPlugin)
-    id("io.github.mambawow.appconfig.plugin") version "0.0.0.3"
+    id("io.github.mambawow.appconfig") version "0.0.3-alpha03"
 }
 
 android {
@@ -45,7 +45,7 @@ dependencies {
     implementation(libs.androidx.ui)
     implementation(libs.androidx.ui.graphics)
     implementation(libs.androidx.material3)
-    ksp(project(":appconfig-processor"))
     debugImplementation(projects.appconfigPanel)
-    implementation(projects.appconfigLib)
+//    implementation(projects.appconfigLib)
+    implementation(libs.appconfig.lib)
 }
