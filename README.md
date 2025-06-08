@@ -5,8 +5,6 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Platform](https://img.shields.io/badge/platform-android%20%7C%20ios-blue.svg)](https://kotlinlang.org/docs/multiplatform.html)
 
-**Stop fighting with SharedPreferences and NSUserDefaults.** 
-
 AppConfig is a powerful, type-safe configuration management library for Kotlin Multiplatform that transforms how you handle app settings with **zero boilerplate code**. Define your configuration as simple interfaces and let KSP generate all the boring stuff.
 
 ---
